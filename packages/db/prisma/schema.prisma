@@ -261,3 +261,404 @@ model OutboxEvent {
   @@map("outbox_events")
   @@index([aggregate, aggregateId, id])
 }
+
+
+
+// =============================================================================
+// PHASE 2 — AUTOMATION ENGINE MODELS
+// =============================================================================
+
+enum FreshnessTier {
+  t5h
+  t12h
+  t24h
+  t5d
+  stale
+
+  @@map("freshness_tier")
+}
+
+enum RunMode {
+  single
+  multi
+
+  @@map("run_mode")
+}
+
+enum RunStatus {
+  pending
+  planning
+  running
+  paused
+  stopped
+  done
+  failed
+
+  @@map("run_status")
+}
+
+enum StageStatus {
+  pending
+  discovering
+  applying
+  done
+  skipped
+  failed
+
+  @@map("stage_status")
+}
+
+enum ApplicationStatus {
+  queued
+  submitting
+  submitted
+  viewed
+  shortlisted
+  rejected
+  interview_scheduled
+  offer
+  withdrawn
+  closed_no_response
+  skipped_human_required
+  skipped_low_score
+  skipped_stale
+  skipped_external_ats
+  skipped_recon_pending
+  skipped_duplicate
+  failed_selector_drift
+  failed_platform_error
+  duplicate
+
+  @@map("application_status")
+}
+
+enum PlatformAccountStatus {
+  connected
+  disconnected
+  expired
+  blocked
+
+  @@map("platform_account_status")
+}
+
+enum SessionHealth {
+  fresh
+  stale
+  blocked
+  unknown
+
+  @@map("session_health")
+}
+
+enum AutonomousMode {
+  assisted
+  autonomous
+
+  @@map("autonomous_mode")
+}
+
+enum RemoteKind {
+  remote
+  hybrid
+  onsite
+  any
+
+  @@map("remote_kind")
+}
+
+model JobCanonicalKey {
+  canonicalKey         String   @id @map("canonical_key")
+  representativeJobId  String   @map("representative_job_id") @db.Uuid
+  firstSeenAt          DateTime @default(now()) @map("first_seen_at") @db.Timestamptz
+  variantCount         Int      @default(1) @map("variant_count")
+
+  representativeJob    Job      @relation(fields: [representativeJobId], references: [id], onDelete: Cascade)
+
+  @@map("job_canonical_keys")
+}
+
+model Job {
+  id                  String          @id @default(uuid()) @db.Uuid
+  tenantId            String          @default("00000000-0000-0000-0000-000000000000") @map("tenant_id") @db.Uuid
+  platformId          String          @map("platform_id") @db.Uuid
+  externalId          String          @map("external_id")
+  url                 String
+  title               String
+  company             String?
+  location            String?
+  remoteKind          RemoteKind?     @map("remote_kind")
+  postedAt            DateTime?       @map("posted_at") @db.Timestamptz
+  postedAtUncertain   Boolean         @default(false) @map("posted_at_uncertain")
+  discoveredAt        DateTime        @default(now()) @map("discovered_at") @db.Timestamptz
+  freshness           FreshnessTier?
+  descriptionMd       String?         @map("description_md")
+  raw                 Json?           @db.JsonB
+  applicants          Int?
+  salaryMin           BigInt?         @map("salary_min")
+  salaryMax           BigInt?         @map("salary_max")
+  currency            String?         @db.Char(3)
+  isQuickApply        Boolean?        @map("is_quick_apply")
+  requiredSkills      String[]        @default([]) @map("required_skills")
+  canonicalKey        String          @default("") @map("canonical_key")
+  createdAt           DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime        @updatedAt @map("updated_at") @db.Timestamptz
+
+  applications        Application[]
+  representativeFor   JobCanonicalKey[]
+
+  @@unique([platformId, externalId], map: "jobs_platform_external_unique")
+  @@map("jobs")
+  @@index([platformId, postedAt(sort: Desc)])
+  @@index([canonicalKey])
+  @@index([tenantId])
+}
+
+model PlatformAccount {
+  id                   String                 @id @default(uuid()) @db.Uuid
+  tenantId             String                 @default("00000000-0000-0000-0000-000000000000") @map("tenant_id") @db.Uuid
+  userId               String                 @map("user_id") @db.Uuid
+  platformId           String                 @map("platform_id") @db.Uuid
+  displayLabel         String?                @map("display_label")
+  usernameEnc          Bytes?                 @map("username_enc")
+  status               PlatformAccountStatus  @default(connected)
+  lastLoginAt          DateTime?              @map("last_login_at") @db.Timestamptz
+  lastSessionCheckAt   DateTime?              @map("last_session_check_at") @db.Timestamptz
+  createdAt            DateTime               @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime               @updatedAt @map("updated_at") @db.Timestamptz
+
+  credentials          PlatformCredential?
+  sessions             PlatformSession[]
+
+  @@unique([userId, platformId])
+  @@map("platform_accounts")
+}
+
+model PlatformCredential {
+  accountId         String   @id @map("account_id") @db.Uuid
+  cipher            Bytes
+  cipherAadVersion  Int      @default(1) @map("cipher_aad_version")
+  vaultKeyId        String   @map("vault_key_id")
+  rotationVersion   Int      @default(1) @map("rotation_version")
+  dekVersion        Int      @default(1) @map("dek_version") @db.SmallInt
+  rotatedAt         DateTime? @map("rotated_at") @db.Timestamptz
+  expiresAt         DateTime? @map("expires_at") @db.Timestamptz
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  account           PlatformAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@map("platform_credentials")
+}
+
+model PlatformSession {
+  id           String         @id @default(uuid()) @db.Uuid
+  accountId    String         @map("account_id") @db.Uuid
+  storageUri   String         @map("storage_uri")
+  expiresAt    DateTime?      @map("expires_at") @db.Timestamptz
+  health       SessionHealth  @default(unknown)
+  lastUsedAt   DateTime?      @map("last_used_at") @db.Timestamptz
+  dekVersion   Int            @default(1) @map("dek_version") @db.SmallInt
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz
+
+  account      PlatformAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@map("platform_sessions")
+  @@index([accountId, createdAt(sort: Desc)])
+}
+
+model PlatformPermission {
+  userId               String          @map("user_id") @db.Uuid
+  platformId           String          @map("platform_id") @db.Uuid
+  allowApply           Boolean         @default(true) @map("allow_apply")
+  allowProfileEdit     Boolean         @default(false) @map("allow_profile_edit")
+  allowResumeEdit      Boolean         @default(false) @map("allow_resume_edit")
+  autonomousMode       AutonomousMode  @default(assisted) @map("autonomous_mode")
+  dailyApplicationCap  Int?            @map("daily_application_cap")
+  thresholdScore       Int             @default(70) @map("threshold_score") @db.SmallInt
+  pacingProfile        String          @default("STRICT_DEFAULT") @map("pacing_profile")
+  updatedAt            DateTime        @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@id([userId, platformId])
+  @@map("platform_permissions")
+}
+
+model JobRun {
+  id                   String     @id @default(uuid()) @db.Uuid
+  tenantId             String     @default("00000000-0000-0000-0000-000000000000") @map("tenant_id") @db.Uuid
+  userId               String     @map("user_id") @db.Uuid
+  mode                 RunMode
+  status               RunStatus  @default(pending)
+  control              String     @default("run")
+  targetPerPlatform    Int        @default(20) @map("target_per_platform")
+  thresholdScore       Int        @default(70) @map("threshold_score") @db.SmallInt
+  autonomous           Boolean    @default(false)
+  dryRun               Boolean    @default(false) @map("dry_run")
+  requestedPlatforms   String[]   @map("requested_platforms") @db.Uuid
+  startedAt            DateTime?  @map("started_at") @db.Timestamptz
+  finishedAt           DateTime?  @map("finished_at") @db.Timestamptz
+  idempotencyKey       String     @map("idempotency_key")
+  config               Json       @default("{}") @db.JsonB
+  leaseFence           BigInt     @default(0) @map("lease_fence")
+  ownerReplica         String?    @map("owner_replica")
+  createdAt            DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime   @updatedAt @map("updated_at") @db.Timestamptz
+
+  stages               RunStage[]
+  applications         Application[]
+
+  @@unique([userId, idempotencyKey], map: "job_runs_idempotency_unique")
+  @@map("job_runs")
+  @@index([userId, status])
+}
+
+model RunStage {
+  id            String       @id @default(uuid()) @db.Uuid
+  tenantId      String       @default("00000000-0000-0000-0000-000000000000") @map("tenant_id") @db.Uuid
+  runId         String       @map("run_id") @db.Uuid
+  platformId    String       @map("platform_id") @db.Uuid
+  ordinal       Int          @db.SmallInt
+  status        StageStatus  @default(pending)
+  target        Int
+  appliedCount  Int          @default(0) @map("applied_count")
+  skippedCount  Int          @default(0) @map("skipped_count")
+  failedCount   Int          @default(0) @map("failed_count")
+  startedAt     DateTime?    @map("started_at") @db.Timestamptz
+  finishedAt    DateTime?    @map("finished_at") @db.Timestamptz
+  reason        String?
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+
+  run           JobRun        @relation(fields: [runId], references: [id], onDelete: Cascade)
+  applications  Application[]
+
+  @@unique([runId, platformId], map: "run_stages_unique_platform")
+  @@unique([runId, ordinal], map: "run_stages_unique_ordinal")
+  @@map("run_stages")
+  @@index([runId, status])
+}
+
+model Application {
+  id                     String              @id @default(uuid()) @db.Uuid
+  tenantId               String              @default("00000000-0000-0000-0000-000000000000") @map("tenant_id") @db.Uuid
+  userId                 String              @map("user_id") @db.Uuid
+  runId                  String?             @map("run_id") @db.Uuid
+  stageId                String?             @map("stage_id") @db.Uuid
+  jobId                  String              @map("job_id") @db.Uuid
+  platformId             String              @map("platform_id") @db.Uuid
+  status                 ApplicationStatus
+  aiScore                Int?                @map("ai_score") @db.SmallInt
+  resumeVersionId        String?             @map("resume_version_id") @db.Uuid
+  coverLetterId          String?             @map("cover_letter_id") @db.Uuid
+  freshnessAtApply       FreshnessTier?      @map("freshness_at_apply")
+  submittedAt            DateTime?           @map("submitted_at") @db.Timestamptz
+  outcomeAt              DateTime?           @map("outcome_at") @db.Timestamptz
+  lastRefreshedAt        DateTime?           @map("last_refreshed_at") @db.Timestamptz
+  reason                 String?
+  externalApplicationId  String?             @map("external_application_id")
+  idempotencyKey         String              @unique(map: "applications_idempotency_unique") @map("idempotency_key")
+  adapterVersion         String              @default("0.0.0") @map("adapter_version")
+  wasDryRun              Boolean             @default(false) @map("was_dry_run")
+  createdAt              DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt              DateTime            @updatedAt @map("updated_at") @db.Timestamptz
+
+  run                    JobRun?             @relation(fields: [runId], references: [id], onDelete: SetNull)
+  stage                  RunStage?           @relation(fields: [stageId], references: [id], onDelete: SetNull)
+  job                    Job                 @relation(fields: [jobId], references: [id], onDelete: Restrict)
+
+  questions              ApplicationQuestion[]
+  files                  ApplicationFile[]
+  events                 ApplicationEvent[]
+
+  @@map("applications")
+  @@index([userId, status, submittedAt(sort: Desc)])
+  @@index([runId])
+  @@index([stageId])
+  @@index([tenantId, userId, createdAt(sort: Desc)])
+}
+
+model ApplicationQuestion {
+  id              String   @id @default(uuid()) @db.Uuid
+  tenantId        String   @default("00000000-0000-0000-0000-000000000000") @map("tenant_id") @db.Uuid
+  applicationId   String   @map("application_id") @db.Uuid
+  questionRaw     String   @map("question_raw")
+  questionNorm    String   @map("question_norm")
+  fieldKind       String   @map("field_kind")
+  answer          String?
+  source          String
+  aiDecisionId    BigInt?  @map("ai_decision_id")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  application     Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@map("application_questions")
+  @@index([applicationId])
+}
+
+model ApplicationFile {
+  id              String   @id @default(uuid()) @db.Uuid
+  tenantId        String   @default("00000000-0000-0000-0000-000000000000") @map("tenant_id") @db.Uuid
+  applicationId   String   @map("application_id") @db.Uuid
+  kind            String
+  uri             String
+  stepLabel       String?  @map("step_label")
+  bytes           BigInt?
+  sha256          Bytes?
+  redacted        Boolean  @default(false)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  application     Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@map("application_files")
+  @@index([applicationId, kind])
+}
+
+model Screenshot {
+  id              String    @id @default(uuid()) @db.Uuid
+  tenantId        String    @default("00000000-0000-0000-0000-000000000000") @map("tenant_id") @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  applicationId   String?   @map("application_id") @db.Uuid
+  runId           String?   @map("run_id") @db.Uuid
+  platformId      String?   @map("platform_id") @db.Uuid
+  kind            String
+  uri             String
+  redacted        Boolean   @default(false)
+  bytes           BigInt?
+  sha256          Bytes?
+  capturedAt      DateTime  @default(now()) @map("captured_at") @db.Timestamptz
+  label           String?
+
+  @@map("screenshots")
+  @@index([userId, capturedAt(sort: Desc)])
+  @@index([applicationId])
+}
+
+model RunEvent {
+  id          BigInt   @default(autoincrement())
+  tenantId    String   @default("00000000-0000-0000-0000-000000000000") @map("tenant_id") @db.Uuid
+  runId       String   @map("run_id") @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  occurredAt  DateTime @default(now()) @map("occurred_at") @db.Timestamptz
+  kind        String
+  payload     Json     @default("{}") @db.JsonB
+
+  @@id([id, occurredAt])
+  @@map("run_events")
+  @@index([runId, occurredAt])
+  @@index([userId, occurredAt])
+}
+
+model ApplicationEvent {
+  id              BigInt   @default(autoincrement())
+  tenantId        String   @default("00000000-0000-0000-0000-000000000000") @map("tenant_id") @db.Uuid
+  applicationId   String   @map("application_id") @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  occurredAt      DateTime @default(now()) @map("occurred_at") @db.Timestamptz
+  kind            String
+  payload         Json     @default("{}") @db.JsonB
+
+  application     Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@id([id, occurredAt])
+  @@map("application_events")
+  @@index([applicationId, occurredAt])
+  @@index([userId, occurredAt])
+}

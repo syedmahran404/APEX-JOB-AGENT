@@ -163,3 +163,220 @@ tables:
       delivered_at: { strategy: keep }
       attempts: { strategy: keep }
       last_error: { strategy: drop }
+
+
+
+  # ===========================================================================
+  # PHASE 2 — AUTOMATION ENGINE TABLES
+  # ===========================================================================
+
+  job_canonical_keys:
+    columns:
+      canonical_key: { strategy: hash }
+      representative_job_id: { strategy: keep }
+      first_seen_at: { strategy: keep }
+      variant_count: { strategy: keep }
+
+  jobs:
+    columns:
+      id: { strategy: keep }
+      tenant_id: { strategy: keep }
+      platform_id: { strategy: keep }
+      external_id: { strategy: hash }
+      url: { strategy: hash }
+      title: { strategy: keep }
+      company: { strategy: keep }
+      location: { strategy: keep }
+      remote_kind: { strategy: keep }
+      posted_at: { strategy: keep }
+      posted_at_uncertain: { strategy: keep }
+      discovered_at: { strategy: keep }
+      freshness: { strategy: keep }
+      description_md: { strategy: drop }
+      raw: { strategy: drop }
+      applicants: { strategy: keep }
+      salary_min: { strategy: keep }
+      salary_max: { strategy: keep }
+      currency: { strategy: keep }
+      is_quick_apply: { strategy: keep }
+      required_skills: { strategy: keep }
+      canonical_key: { strategy: hash }
+      created_at: { strategy: keep }
+      updated_at: { strategy: keep }
+
+  platform_accounts:
+    columns:
+      id: { strategy: keep }
+      tenant_id: { strategy: keep }
+      user_id: { strategy: keep }
+      platform_id: { strategy: keep }
+      display_label: { strategy: drop }
+      username_enc: { strategy: drop }
+      status: { strategy: keep }
+      last_login_at: { strategy: keep }
+      last_session_check_at: { strategy: keep }
+      created_at: { strategy: keep }
+      updated_at: { strategy: keep }
+
+  platform_credentials:
+    columns:
+      account_id: { strategy: keep }
+      cipher: { strategy: drop }
+      cipher_aad_version: { strategy: keep }
+      vault_key_id: { strategy: drop }
+      rotation_version: { strategy: keep }
+      dek_version: { strategy: keep }
+      rotated_at: { strategy: keep }
+      expires_at: { strategy: keep }
+      created_at: { strategy: keep }
+
+  platform_sessions:
+    columns:
+      id: { strategy: keep }
+      account_id: { strategy: keep }
+      storage_uri: { strategy: drop }
+      expires_at: { strategy: keep }
+      health: { strategy: keep }
+      last_used_at: { strategy: keep }
+      dek_version: { strategy: keep }
+      created_at: { strategy: keep }
+
+  platform_permissions:
+    columns:
+      user_id: { strategy: keep }
+      platform_id: { strategy: keep }
+      allow_apply: { strategy: keep }
+      allow_profile_edit: { strategy: keep }
+      allow_resume_edit: { strategy: keep }
+      autonomous_mode: { strategy: keep }
+      daily_application_cap: { strategy: keep }
+      threshold_score: { strategy: keep }
+      pacing_profile: { strategy: keep }
+      updated_at: { strategy: keep }
+
+  job_runs:
+    columns:
+      id: { strategy: keep }
+      tenant_id: { strategy: keep }
+      user_id: { strategy: keep }
+      mode: { strategy: keep }
+      status: { strategy: keep }
+      control: { strategy: keep }
+      target_per_platform: { strategy: keep }
+      threshold_score: { strategy: keep }
+      autonomous: { strategy: keep }
+      dry_run: { strategy: keep }
+      requested_platforms: { strategy: keep }
+      started_at: { strategy: keep }
+      finished_at: { strategy: keep }
+      idempotency_key: { strategy: hash }
+      config: { strategy: drop }
+      lease_fence: { strategy: keep }
+      owner_replica: { strategy: drop }
+      created_at: { strategy: keep }
+      updated_at: { strategy: keep }
+
+  run_stages:
+    columns:
+      id: { strategy: keep }
+      tenant_id: { strategy: keep }
+      run_id: { strategy: keep }
+      platform_id: { strategy: keep }
+      ordinal: { strategy: keep }
+      status: { strategy: keep }
+      target: { strategy: keep }
+      applied_count: { strategy: keep }
+      skipped_count: { strategy: keep }
+      failed_count: { strategy: keep }
+      started_at: { strategy: keep }
+      finished_at: { strategy: keep }
+      reason: { strategy: keep }
+      created_at: { strategy: keep }
+      updated_at: { strategy: keep }
+
+  applications:
+    columns:
+      id: { strategy: keep }
+      tenant_id: { strategy: keep }
+      user_id: { strategy: keep }
+      run_id: { strategy: keep }
+      stage_id: { strategy: keep }
+      job_id: { strategy: keep }
+      platform_id: { strategy: keep }
+      status: { strategy: keep }
+      ai_score: { strategy: keep }
+      resume_version_id: { strategy: keep }
+      cover_letter_id: { strategy: keep }
+      freshness_at_apply: { strategy: keep }
+      submitted_at: { strategy: keep }
+      outcome_at: { strategy: keep }
+      last_refreshed_at: { strategy: keep }
+      reason: { strategy: keep }
+      external_application_id: { strategy: hash }
+      idempotency_key: { strategy: hash }
+      adapter_version: { strategy: keep }
+      was_dry_run: { strategy: keep }
+      created_at: { strategy: keep }
+      updated_at: { strategy: keep }
+
+  application_questions:
+    columns:
+      id: { strategy: keep }
+      tenant_id: { strategy: keep }
+      application_id: { strategy: keep }
+      question_raw: { strategy: keep }
+      question_norm: { strategy: keep }
+      field_kind: { strategy: keep }
+      answer: { strategy: drop }
+      source: { strategy: keep }
+      ai_decision_id: { strategy: keep }
+      created_at: { strategy: keep }
+
+  application_files:
+    columns:
+      id: { strategy: keep }
+      tenant_id: { strategy: keep }
+      application_id: { strategy: keep }
+      kind: { strategy: keep }
+      uri: { strategy: hash }
+      step_label: { strategy: keep }
+      bytes: { strategy: keep }
+      sha256: { strategy: drop }
+      redacted: { strategy: keep }
+      created_at: { strategy: keep }
+
+  screenshots:
+    columns:
+      id: { strategy: keep }
+      tenant_id: { strategy: keep }
+      user_id: { strategy: keep }
+      application_id: { strategy: keep }
+      run_id: { strategy: keep }
+      platform_id: { strategy: keep }
+      kind: { strategy: keep }
+      uri: { strategy: hash }
+      redacted: { strategy: keep }
+      bytes: { strategy: keep }
+      sha256: { strategy: drop }
+      captured_at: { strategy: keep }
+      label: { strategy: keep }
+
+  run_events:
+    columns:
+      id: { strategy: keep }
+      tenant_id: { strategy: keep }
+      run_id: { strategy: keep }
+      user_id: { strategy: keep }
+      occurred_at: { strategy: keep }
+      kind: { strategy: keep }
+      payload: { strategy: drop }
+
+  application_events:
+    columns:
+      id: { strategy: keep }
+      tenant_id: { strategy: keep }
+      application_id: { strategy: keep }
+      user_id: { strategy: keep }
+      occurred_at: { strategy: keep }
+      kind: { strategy: keep }
+      payload: { strategy: drop }
