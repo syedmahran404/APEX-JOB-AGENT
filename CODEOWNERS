@@ -1,0 +1,30 @@
+# CODEOWNERS — required reviewers per area.
+# Reference: docs/architecture/08-security-architecture.md §16 (supply chain),
+#            docs/architecture/10-implementation-roadmap.md §14 (working agreements).
+
+# Two-reviewer rule on security-critical and data-shape paths.
+/apps/api/src/modules/auth/**           @apex/security-reviewers @apex/api-maintainers
+/apps/api/src/modules/personal-info/**  @apex/security-reviewers @apex/api-maintainers
+/packages/crypto/**                     @apex/security-reviewers
+/packages/vault-client/**               @apex/security-reviewers
+/apps/automation-worker/src/leases/**   @apex/security-reviewers
+/packages/db/prisma/migrations/**       @apex/db-reviewers @apex/api-maintainers
+/packages/db/prisma/schema.prisma       @apex/db-reviewers @apex/api-maintainers
+
+# AI prompts: a prompt change without an eval cannot merge; AI reviewers approve content.
+/packages/ai-core/prompts/**            @apex/ai-reviewers
+/tools/eval-harness/**                  @apex/ai-reviewers
+
+# Adapters: high-churn; per-platform owner + a generalist.
+/packages/platform-adapters/**          @apex/automation-reviewers
+
+# Architecture docs: changes are reviewable but rarely blocking.
+/docs/architecture/**                   @apex/architecture-reviewers
+/docs/adr/**                            @apex/architecture-reviewers
+
+# Infrastructure & deploy.
+/infra/**                               @apex/sre-reviewers
+/.github/workflows/**                   @apex/sre-reviewers
+
+# Default fallback.
+*                                       @apex/maintainers

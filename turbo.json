@@ -1,0 +1,50 @@
+{
+  "ui": "stream",
+  "globalDependencies": [
+    "tsconfig.base.json",
+    ".eslintrc*",
+    "eslint.config.js",
+    ".prettierrc.cjs",
+    "pnpm-lock.yaml"
+  ],
+  "globalEnv": ["NODE_ENV", "CI"],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", "build/**", ".next/**", "!.next/cache/**"]
+    },
+    "typecheck": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
+    "lint": {
+      "outputs": []
+    },
+    "test:unit": {
+      "outputs": ["coverage/**"]
+    },
+    "test:integration": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"]
+    },
+    "test:e2e": {
+      "dependsOn": ["^build"],
+      "outputs": ["playwright-report/**", "test-results/**"],
+      "cache": false
+    },
+    "openapi:generate": {
+      "outputs": ["docs/api/openapi.yaml"]
+    },
+    "openapi:check": {
+      "dependsOn": ["openapi:generate"],
+      "outputs": []
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "clean": {
+      "cache": false
+    }
+  }
+}
