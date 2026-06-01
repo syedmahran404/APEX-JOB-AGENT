@@ -74,6 +74,8 @@ The user signs in with WebAuthn, completes the onboarding wizard (resume parse, 
 
 ## 5. Where to read next
 
+> **Audit:** A comprehensive post-design audit lives at [`../audit/`](../audit). It corrects ~30 issues in this folder (4 S1 blockers, 16 S2 material findings, ~18 refinements), adds 20 missing enterprise features (most notably a scheduler service, webhooks, email ingestion, dry-run mode, job dedupe, consented impersonation), revises the database schema to ~74 tables, and gives a numerical 10/100/1000-applications-per-day capacity model. **Read [`../audit/00-overview.md`](../audit/00-overview.md) before starting Phase 1.** Where the audit contradicts a phase doc, the audit wins.
+
 - For the *shape* of the system: [Phase 1 — System Architecture](./01-system-architecture.md).
 - For the *layout* of the code: [Phase 2 — Folder Structure](./02-folder-structure.md).
 - For *what the database holds*: [Phase 3 — Database Design](./03-database-design.md).

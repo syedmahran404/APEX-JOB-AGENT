@@ -39,6 +39,7 @@ Read in order:
 Cross-cutting reference:
 
 - [Architecture overview & decision log](./docs/architecture/00-overview.md)
+- **[Architecture Audit & Refinements](./docs/audit/00-overview.md)** — post-design audit; supersedes the architecture wherever they conflict. Read before starting implementation.
 
 ## License & Use
 
