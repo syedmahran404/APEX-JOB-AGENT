@@ -7,9 +7,8 @@
 import { Server, type ServerOptions } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { Redis } from 'ioredis';
-import { type IncomingMessage, type ServerResponse } from 'node:http';
+import { type IncomingMessage, type Server as HttpServer } from 'node:http';
 import { type Http2SecureServer } from 'node:http2';
-import { type Server as HttpServer } from 'node:http';
 import { Events } from '@apex/shared-types';
 
 export interface RealtimeServerOptions {
@@ -101,10 +100,4 @@ export async function createRealtimeServer(opts: RealtimeServerOptions): Promise
       await Promise.allSettled([pub.quit(), sub.quit()]);
     },
   };
-}
-
-/** Type wrapper used by NestJS to expose the Socket.IO server in DI. */
-export function unusedTypeWrapperForResponse(_: ServerResponse): void {
-  // Keeps node:http types referenced; tsc's import elision drops them otherwise.
-  return;
 }

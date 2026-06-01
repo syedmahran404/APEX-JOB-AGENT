@@ -1,3 +1,4 @@
+import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 interface HealthEnvelope {
@@ -13,7 +14,7 @@ async function fetchHealth(): Promise<HealthEnvelope> {
   return (await resp.json()) as HealthEnvelope;
 }
 
-export function App(): JSX.Element {
+export function App(): React.JSX.Element {
   const health = useQuery({
     queryKey: ['health'],
     queryFn: fetchHealth,

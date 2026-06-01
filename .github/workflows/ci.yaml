@@ -91,29 +91,8 @@ jobs:
   integration:
     name: integration tests
     runs-on: ubuntu-latest
-    timeout-minutes: 25
-    services:
-      postgres:
-        image: pgvector/pgvector:pg16
-        env:
-          POSTGRES_USER: apex
-          POSTGRES_PASSWORD: apex
-          POSTGRES_DB: apex_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U apex"
-          --health-interval 5s --health-timeout 3s --health-retries 10
-      redis:
-        image: redis:7.4-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s --health-timeout 3s --health-retries 10
-    env:
-      DATABASE_URL: postgres://apex:apex@localhost:5432/apex_test
-      REDIS_URL: redis://localhost:6379/0
+    timeout-minutes: 30
+    # Testcontainers spins its own Postgres per test file. No `services:` block needed.
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -126,6 +105,7 @@ jobs:
       - run: pnpm install --frozen-lockfile=false
       - run: pnpm --filter @apex/lint-rules build
       - run: pnpm --filter @apex/db prisma:generate
-      - run: pnpm --filter @apex/db prisma:migrate:deploy
-      - run: pnpm --filter @apex/db seed
-      - run: pnpm test:integration
+      - name: db integration tests (Testcontainers)
+        run: pnpm --filter @apex/db test:integration
+      - name: api integration tests (Testcontainers)
+        run: pnpm --filter @apex/api test:integration

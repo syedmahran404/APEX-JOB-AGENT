@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
     "test:unit": "vitest --run",
+    "test:integration": "RUN_INTEGRATION=1 vitest --run",
     "clean": "rm -rf dist"
   },
   "dependencies": {
@@ -38,6 +39,10 @@
     "@nestjs/cli": "^10.4.5",
     "@nestjs/schematics": "^10.1.4",
     "@nestjs/testing": "^10.4.4",
+    "@testcontainers/postgresql": "^10.13.1",
+    "@vitest/coverage-v8": "^2.1.1",
+    "supertest": "^7.0.0",
+    "testcontainers": "^10.13.1",
     "tsx": "^4.19.1",
     "typescript": "^5.5.4",
     "vitest": "^2.1.1"

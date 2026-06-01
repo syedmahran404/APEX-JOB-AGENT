@@ -16,11 +16,9 @@ import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fa
 import fastifyHelmet from '@fastify/helmet';
 import fastifyCookie from '@fastify/cookie';
 import fastifyCors from '@fastify/cors';
-import { createLogger } from '@apex/shared-logger';
 import { loadConfig } from '@apex/shared-config';
 import { Env } from '@apex/shared-types';
 import { AppModule } from './app.module.js';
-import { ApexErrorFilter } from './infra/error.filter.js';
 import { disconnectPrisma } from '@apex/db';
 
 async function bootstrap(): Promise<void> {
@@ -29,22 +27,27 @@ async function bootstrap(): Promise<void> {
     env: { ...process.env, SERVICE_NAME: 'apex-api' },
   });
 
-  const logger = createLogger({
-    service: 'apex-api',
-    version: config.SERVICE_VERSION,
-    level: config.LOG_LEVEL,
-    pretty: config.NODE_ENV === 'development',
-  });
-
   const adapter = new FastifyAdapter({
     trustProxy: true,
     logger: false, // we manage logging ourselves via Pino + interceptors
     bodyLimit: 1_048_576, // 1 MiB
   });
 
-  const app = await NestFactory.create<NestFastifyApplication>(AppModule, adapter, {
-    bufferLogs: true,
-  });
+  const app = await NestFactory.create<NestFastifyApplication>(
+    AppModule.forRoot({
+      service: 'apex-api',
+      version: config.SERVICE_VERSION,
+      databaseUrl: config.DATABASE_URL,
+      logLevel: config.LOG_LEVEL,
+      pretty: config.NODE_ENV === 'development',
+    }),
+    adapter,
+    {
+      bufferLogs: true,
+    },
+  );
+
+  app.enableShutdownHooks();
 
   // Security headers.
   await app.register(fastifyHelmet, {
@@ -64,29 +67,25 @@ async function bootstrap(): Promise<void> {
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   });
 
-  app.useGlobalFilters(new ApexErrorFilter(logger));
-
   app.setGlobalPrefix('api/v1', { exclude: ['healthz', 'readyz'] });
 
   // Graceful shutdown.
   const shutdown = (signal: NodeJS.Signals) => () => {
-    logger.info({ signal }, 'received shutdown signal');
     void app
       .close()
       .then(() => disconnectPrisma())
       .then(() => process.exit(0))
-      .catch((err: unknown) => {
-        logger.error({ err }, 'error during shutdown');
-        process.exit(1);
-      });
+      .catch(() => process.exit(1));
+    // eslint-disable-next-line no-console
+    console.warn('shutdown signal received:', signal);
   };
   process.on('SIGINT', shutdown('SIGINT'));
   process.on('SIGTERM', shutdown('SIGTERM'));
 
   await app.listen({ host: config.HOST, port: config.PORT });
-  logger.info(
-    { host: config.HOST, port: config.PORT, env: config.NODE_ENV, version: config.SERVICE_VERSION },
-    'apex-api listening',
+  // eslint-disable-next-line no-console
+  console.warn(
+    `apex-api listening on ${config.HOST}:${String(config.PORT)} env=${config.NODE_ENV} version=${config.SERVICE_VERSION}`,
   );
 }
 

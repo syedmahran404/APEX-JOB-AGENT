@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { type HealthCheckResponse } from '@apex/shared-types';
-import { getPrisma } from '@apex/db';
+import type { PrismaClient } from '@apex/db';
+import { PRISMA } from '../../infra/database/database.module.js';
 
 export const HEALTH_SERVICE = Symbol('HEALTH_SERVICE');
 
@@ -8,13 +9,14 @@ export const HEALTH_SERVICE = Symbol('HEALTH_SERVICE');
 export class HealthService {
   private readonly startedAt = Date.now();
 
+  constructor(@Inject(PRISMA) private readonly prisma: PrismaClient) {}
+
   async checkReadiness(): Promise<HealthCheckResponse> {
     const checks: HealthCheckResponse['checks'] = {};
 
-    // PG ping.
     const t0 = performance.now();
     try {
-      await getPrisma().$queryRawUnsafe('SELECT 1');
+      await this.prisma.$queryRawUnsafe('SELECT 1');
       checks.postgres = { status: 'ok', latencyMs: Math.round(performance.now() - t0) };
     } catch (err) {
       checks.postgres = { status: 'down', error: (err as Error).message };

@@ -1,6 +1,6 @@
 // Global exception filter. Maps every thrown value to an ErrorEnvelope.
 
-import { Catch, type ArgumentsHost, type ExceptionFilter, HttpException } from '@nestjs/common';
+import { Catch, type ArgumentsHost, type ExceptionFilter, HttpException, Inject, Injectable } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { type Logger } from '@apex/shared-logger';
 import {
@@ -10,10 +10,12 @@ import {
   isApexError,
   ValidationError,
 } from '@apex/shared-errors';
+import { LOGGER } from './logger/logger.module.js';
 
+@Injectable()
 @Catch()
 export class ApexErrorFilter implements ExceptionFilter {
-  constructor(private readonly logger: Logger) {}
+  constructor(@Inject(LOGGER) private readonly logger: Logger) {}
 
   catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();

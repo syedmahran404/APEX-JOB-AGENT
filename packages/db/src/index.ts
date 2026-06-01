@@ -21,4 +21,4 @@ export {
 } from './repositories/idempotency.repository.js';
 
 // Re-export Prisma types so apps don't import @prisma/client directly.
-export type { User, UserSession, AuditLog, Permission, Role, Platform } from '@prisma/client';
+export type { User, UserSession, AuditLog, Permission, Role, Platform, Prisma, PrismaClient } from '@prisma/client';

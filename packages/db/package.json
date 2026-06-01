@@ -20,16 +20,20 @@
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
-    "seed": "tsx prisma/seed.ts"
+    "seed": "tsx prisma/seed.ts",
+    "test:unit": "vitest --run",
+    "test:integration": "RUN_INTEGRATION=1 vitest --run"
   },
   "dependencies": {
     "@apex/shared-errors": "workspace:^",
     "@prisma/client": "^5.20.0"
   },
   "devDependencies": {
+    "@apex/testing": "workspace:^",
     "prisma": "^5.20.0",
     "tsx": "^4.19.1",
-    "typescript": "^5.5.4"
+    "typescript": "^5.5.4",
+    "vitest": "^2.1.1"
   },
   "prisma": {
     "schema": "./prisma/schema.prisma",
