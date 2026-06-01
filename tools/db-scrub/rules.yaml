@@ -1,0 +1,165 @@
+# db-scrub rules — every column on every table is enumerated with an explicit
+# scrub strategy. CI verifies new columns gain entries here before they ship.
+# Phase 8 §15 (audit fix H4): fail-closed; missing entry blocks the migration.
+#
+# Strategies:
+#   keep    — copy as-is (non-PII).
+#   drop    — replace with NULL or empty default.
+#   hash    — replace with SHA-256 of the value (deterministic, irreversible).
+#   fake    — synthesize a plausible value (uses faker; deterministic by row id).
+#
+# This file is checked by `pnpm scrub:check`. Adding a column to schema.prisma
+# without a corresponding entry here fails CI.
+
+version: 1
+
+tables:
+  users:
+    columns:
+      id: { strategy: keep }
+      email: { strategy: fake, kind: email }
+      display_name: { strategy: fake, kind: name }
+      password_hash: { strategy: drop }
+      status: { strategy: keep }
+      data_key_id: { strategy: drop }
+      data_key_wrapped: { strategy: drop }
+      email_verified_at: { strategy: keep }
+      last_login_at: { strategy: keep }
+      failed_login_count: { strategy: keep }
+      locked_until: { strategy: keep }
+      email_status: { strategy: keep }
+      created_at: { strategy: keep }
+      updated_at: { strategy: keep }
+      deleted_at: { strategy: keep }
+      tenant_id: { strategy: keep }
+
+  user_sessions:
+    columns:
+      id: { strategy: keep }
+      user_id: { strategy: keep }
+      token_hash: { strategy: drop }
+      user_agent: { strategy: hash }
+      ip_inet: { strategy: hash }
+      expires_at: { strategy: keep }
+      revoked_at: { strategy: keep }
+      created_at: { strategy: keep }
+
+  webauthn_credentials:
+    columns:
+      id: { strategy: keep }
+      user_id: { strategy: keep }
+      credential_id: { strategy: drop }
+      public_key: { strategy: drop }
+      sign_count: { strategy: keep }
+      transports: { strategy: keep }
+      device_label: { strategy: fake, kind: word }
+      created_at: { strategy: keep }
+      last_used_at: { strategy: keep }
+
+  totp_secrets:
+    columns:
+      user_id: { strategy: keep }
+      secret_wrapped: { strategy: drop }
+      enabled_at: { strategy: keep }
+      last_used_at: { strategy: keep }
+      dek_version: { strategy: keep }
+
+  mfa_recovery_codes:
+    columns:
+      id: { strategy: keep }
+      user_id: { strategy: keep }
+      code_hash: { strategy: drop }
+      used_at: { strategy: keep }
+      created_at: { strategy: keep }
+
+  roles:
+    columns:
+      id: { strategy: keep }
+      key: { strategy: keep }
+      label: { strategy: keep }
+
+  user_roles:
+    columns:
+      user_id: { strategy: keep }
+      role_id: { strategy: keep }
+
+  permissions:
+    columns:
+      id: { strategy: keep }
+      key: { strategy: keep }
+      label: { strategy: keep }
+
+  user_permissions:
+    columns:
+      user_id: { strategy: keep }
+      permission_id: { strategy: keep }
+      granted_at: { strategy: keep }
+      granted_by: { strategy: keep }
+      scope: { strategy: keep }
+
+  user_permissions:
+    columns:
+      id: { strategy: keep }
+      user_id: { strategy: keep }
+      permission_id: { strategy: keep }
+      granted_at: { strategy: keep }
+      granted_by: { strategy: keep }
+      scope: { strategy: keep }
+
+  platforms:
+    columns:
+      id: { strategy: keep }
+      key: { strategy: keep }
+      label: { strategy: keep }
+      base_url: { strategy: keep }
+      enabled: { strategy: keep }
+      ordinal: { strategy: keep }
+
+  audit_log:
+    columns:
+      id: { strategy: keep }
+      occurred_at: { strategy: keep }
+      actor_kind: { strategy: keep }
+      actor_id: { strategy: keep }
+      user_id: { strategy: keep }
+      action: { strategy: keep }
+      target_kind: { strategy: keep }
+      target_id: { strategy: keep }
+      metadata: { strategy: drop }
+      prev_hash: { strategy: drop }
+      hash: { strategy: drop }
+      ip_inet: { strategy: hash }
+      user_agent: { strategy: hash }
+      tenant_id: { strategy: keep }
+
+  audit_chain_heads:
+    columns:
+      tenant_id: { strategy: keep }
+      head_hash: { strategy: drop }
+      head_id: { strategy: keep }
+      updated_at: { strategy: keep }
+
+  idempotency_keys:
+    columns:
+      user_id: { strategy: keep }
+      key: { strategy: hash }
+      method: { strategy: keep }
+      path: { strategy: keep }
+      request_hash: { strategy: drop }
+      response_status: { strategy: keep }
+      response_envelope: { strategy: drop }
+      created_at: { strategy: keep }
+      expires_at: { strategy: keep }
+
+  outbox_events:
+    columns:
+      id: { strategy: keep }
+      tenant_id: { strategy: keep }
+      occurred_at: { strategy: keep }
+      aggregate: { strategy: keep }
+      aggregate_id: { strategy: keep }
+      topic: { strategy: keep }
+      payload: { strategy: drop }
+      delivered_at: { strategy: keep }
+      attempts: { strategy: keep }
+      last_error: { strategy: drop }

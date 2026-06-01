@@ -1,0 +1,27 @@
+{
+  "name": "@apex/testing",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@testcontainers/postgresql": "^10.13.1",
+    "testcontainers": "^10.13.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  }
+}

@@ -1,0 +1,58 @@
+/* Apex design tokens. Mirrored to Tailwind theme via tailwind.config.ts. */
+
+:root,
+[data-theme='dark'] {
+  /* Background */
+  --color-bg-base: #0A0B0F;
+  --color-bg-raised: #13161D;
+  --color-bg-glass: rgba(20, 23, 30, 0.55);
+
+  /* Text */
+  --color-text-primary: #ECEEF2;
+  --color-text-secondary: #B6BCCD;
+  --color-text-muted: #7B829A;
+
+  /* Accent (electric cyan / aurora violet) */
+  --color-accent: #22D3EE;
+  --color-accent-soft: rgba(34, 211, 238, 0.18);
+  --color-accent-strong: #8B5CF6;
+
+  /* Status */
+  --color-success: #34D399;
+  --color-warn: #F59E0B;
+  --color-error: #F87171;
+  --color-info: #60A5FA;
+
+  /* Radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+
+  /* Spacing scale (4px base) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+
+  /* Shadows */
+  --shadow-elev-1: 0 1px 0 rgba(255, 255, 255, 0.04), 0 8px 24px -16px rgba(0, 0, 0, 0.6);
+  --shadow-elev-2: 0 1px 0 rgba(255, 255, 255, 0.06), 0 24px 48px -24px rgba(0, 0, 0, 0.6);
+
+  /* Focus ring */
+  --ring-focus: 0 0 0 2px var(--color-bg-base), 0 0 0 4px var(--color-accent);
+}
+
+@media (prefers-color-scheme: light) {
+  [data-theme='auto'] {
+    --color-bg-base: #FAFAFA;
+    --color-bg-raised: #FFFFFF;
+    --color-bg-glass: rgba(255, 255, 255, 0.65);
+    --color-text-primary: #0F1115;
+    --color-text-secondary: #36405A;
+    --color-text-muted: #6E7794;
+  }
+}

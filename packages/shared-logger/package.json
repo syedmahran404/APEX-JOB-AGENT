@@ -1,0 +1,36 @@
+{
+  "name": "@apex/shared-logger",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:unit": "vitest --run",
+    "lint": "eslint src",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "pino": "^9.4.0"
+  },
+  "peerDependencies": {
+    "@opentelemetry/api": ">=1.9.0"
+  },
+  "peerDependenciesMeta": {
+    "@opentelemetry/api": { "optional": true }
+  },
+  "devDependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "pino-pretty": "^11.2.2",
+    "typescript": "^5.5.4",
+    "vitest": "^2.1.1"
+  }
+}

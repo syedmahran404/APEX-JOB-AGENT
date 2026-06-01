@@ -1,7 +1,7 @@
 {
   "name": "apex-job-agent",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "AI-powered autonomous multi-platform job application platform.",
   "license": "UNLICENSED",
   "type": "module",
@@ -21,15 +21,32 @@
     "test:unit": "turbo run test:unit",
     "test:integration": "turbo run test:integration",
     "test:e2e": "turbo run test:e2e",
+    "test": "turbo run test:unit test:integration",
     "openapi:generate": "turbo run openapi:generate",
     "openapi:check": "turbo run openapi:check",
+    "db:generate": "pnpm --filter @apex/db prisma:generate",
+    "db:migrate:dev": "pnpm --filter @apex/db prisma:migrate:dev",
+    "db:migrate:deploy": "pnpm --filter @apex/db prisma:migrate:deploy",
+    "db:seed": "pnpm --filter @apex/db seed",
+    "compose:dev:up": "docker compose -f infra/compose/dev.compose.yaml up -d",
+    "compose:dev:down": "docker compose -f infra/compose/dev.compose.yaml down -v",
+    "compose:dev:logs": "docker compose -f infra/compose/dev.compose.yaml logs -f",
+    "scrub:check": "pnpm --filter @apex/db-scrub check",
     "clean": "turbo run clean && rm -rf node_modules/.cache .turbo"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.27.0",
-    "prettier": "^3.3.0",
-    "prettier-plugin-tailwindcss": "^0.6.0",
-    "turbo": "^2.1.0",
-    "typescript": "^5.5.0"
+    "@changesets/cli": "^2.27.9",
+    "@types/node": "^20.16.10",
+    "@typescript-eslint/parser": "^8.8.0",
+    "@typescript-eslint/utils": "^8.8.0",
+    "eslint": "^9.11.1",
+    "globals": "^15.9.0",
+    "jiti": "^2.0.0",
+    "prettier": "^3.3.3",
+    "prettier-plugin-tailwindcss": "^0.6.8",
+    "turbo": "^2.1.3",
+    "typescript": "^5.5.4",
+    "typescript-eslint": "^8.8.0",
+    "vitest": "^2.1.1"
   }
 }

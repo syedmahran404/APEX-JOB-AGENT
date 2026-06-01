@@ -1,0 +1,263 @@
+// APEX JOB AGENT — Phase 1 schema (M0 subset).
+// Reference: docs/architecture/03-database-design.md + docs/audit/05-database-additions.md.
+//
+// Forward-only migrations. Every model carries `tenant_id` from day one
+// (audit fix A8 multi-tenant readiness). PII columns carry a `dek_version`
+// so background re-encryption is incremental (audit fix A6).
+
+generator client {
+  provider        = "prisma-client-js"
+  binaryTargets   = ["native"]
+  previewFeatures = []
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================================================
+// Identity & access
+// =============================================================================
+
+model User {
+  id                 String     @id @default(uuid()) @db.Uuid
+  tenantId           String     @default("00000000-0000-0000-0000-000000000000") @db.Uuid @map("tenant_id")
+  email              String     @unique @db.Citext
+  displayName        String     @map("display_name")
+  passwordHash       String     @map("password_hash")
+  status             UserStatus @default(active)
+  dataKeyId          String     @map("data_key_id")
+  dataKeyWrapped     Bytes      @map("data_key_wrapped")
+  emailVerifiedAt    DateTime?  @map("email_verified_at") @db.Timestamptz
+  lastLoginAt        DateTime?  @map("last_login_at") @db.Timestamptz
+  failedLoginCount   Int        @default(0) @map("failed_login_count")
+  lockedUntil        DateTime?  @map("locked_until") @db.Timestamptz
+  emailStatus        EmailStatus @default(unverified) @map("email_status")
+  createdAt          DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime   @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt          DateTime?  @map("deleted_at") @db.Timestamptz
+
+  sessions           UserSession[]
+  webauthnCredentials WebauthnCredential[]
+  totpSecret         TotpSecret?
+  recoveryCodes      MfaRecoveryCode[]
+  roles              UserRole[]
+  permissions        UserPermission[]
+
+  @@map("users")
+  @@index([tenantId])
+}
+
+enum UserStatus {
+  active
+  suspended
+  deleted
+
+  @@map("user_status")
+}
+
+enum EmailStatus {
+  unverified
+  verified
+  bouncing
+  complained
+  suppressed
+
+  @@map("email_status_enum")
+}
+
+model UserSession {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  tokenHash  Bytes     @map("token_hash")
+  userAgent  String?   @map("user_agent")
+  ipInet     String?   @map("ip_inet") @db.Inet
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz
+  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_sessions")
+  @@index([userId])
+  @@unique([tokenHash], map: "user_sessions_token_idx")
+}
+
+model WebauthnCredential {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  credentialId Bytes     @unique @map("credential_id")
+  publicKey    Bytes     @map("public_key")
+  signCount    BigInt    @default(0) @map("sign_count")
+  transports   String[]  @default([])
+  deviceLabel  String?   @map("device_label")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  lastUsedAt   DateTime? @map("last_used_at") @db.Timestamptz
+
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("webauthn_credentials")
+  @@index([userId])
+}
+
+model TotpSecret {
+  userId         String    @id @map("user_id") @db.Uuid
+  secretWrapped  Bytes     @map("secret_wrapped")
+  enabledAt      DateTime? @map("enabled_at") @db.Timestamptz
+  lastUsedAt     DateTime? @map("last_used_at") @db.Timestamptz
+  dekVersion     Int       @default(1) @map("dek_version") @db.SmallInt
+
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("totp_secrets")
+}
+
+model MfaRecoveryCode {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  codeHash  Bytes     @map("code_hash")
+  usedAt    DateTime? @map("used_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("mfa_recovery_codes")
+  @@index([userId])
+}
+
+model Role {
+  id     String     @id @default(uuid()) @db.Uuid
+  key    String     @unique
+  label  String
+
+  users  UserRole[]
+
+  @@map("roles")
+}
+
+model UserRole {
+  userId String @map("user_id") @db.Uuid
+  roleId String @map("role_id") @db.Uuid
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+model Permission {
+  id     String           @id @default(uuid()) @db.Uuid
+  key    String           @unique
+  label  String
+
+  users  UserPermission[]
+
+  @@map("permissions")
+}
+
+model UserPermission {
+  id           String     @id @default(uuid()) @db.Uuid
+  userId       String     @map("user_id") @db.Uuid
+  permissionId String     @map("permission_id") @db.Uuid
+  grantedAt    DateTime   @default(now()) @map("granted_at") @db.Timestamptz
+  grantedBy    String?    @map("granted_by") @db.Uuid
+  scope        Json       @default("{}") @db.JsonB
+
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, permissionId], map: "user_permissions_user_permission_idx")
+  @@map("user_permissions")
+}
+
+// =============================================================================
+// Platforms (static catalog)
+// =============================================================================
+
+model Platform {
+  id       String  @id @default(uuid()) @db.Uuid
+  key      String  @unique
+  label    String
+  baseUrl  String  @map("base_url")
+  enabled  Boolean @default(true)
+  ordinal  Int     @db.SmallInt
+
+  @@map("platforms")
+}
+
+// =============================================================================
+// Audit log (per-tenant hash chain — audit fix A8)
+// =============================================================================
+
+model AuditLog {
+  id          BigInt    @id @default(autoincrement())
+  occurredAt  DateTime  @default(now()) @map("occurred_at") @db.Timestamptz
+  actorKind   String    @map("actor_kind")
+  actorId     String?   @map("actor_id") @db.Uuid
+  userId      String?   @map("user_id") @db.Uuid
+  action      String
+  targetKind  String?   @map("target_kind")
+  targetId    String?   @map("target_id") @db.Uuid
+  metadata    Json      @default("{}") @db.JsonB
+  prevHash    Bytes?    @map("prev_hash")
+  hash        Bytes
+  ipInet      String?   @map("ip_inet") @db.Inet
+  userAgent   String?   @map("user_agent")
+  tenantId    String    @default("00000000-0000-0000-0000-000000000000") @map("tenant_id") @db.Uuid
+
+  @@map("audit_log")
+  @@index([userId, occurredAt(sort: Desc)])
+  @@index([action, occurredAt(sort: Desc)])
+  @@index([tenantId, occurredAt(sort: Desc)])
+}
+
+model AuditChainHead {
+  tenantId   String   @id @map("tenant_id") @db.Uuid
+  headHash   Bytes    @map("head_hash")
+  headId     BigInt   @map("head_id")
+  updatedAt  DateTime @default(now()) @map("updated_at") @db.Timestamptz
+
+  @@map("audit_chain_heads")
+}
+
+// =============================================================================
+// Idempotency (audit fix A4)
+// =============================================================================
+
+model IdempotencyKey {
+  userId           String   @map("user_id") @db.Uuid
+  key              String
+  method           String
+  path             String
+  requestHash      Bytes    @map("request_hash")
+  responseStatus   Int      @map("response_status")
+  responseEnvelope Json     @map("response_envelope") @db.JsonB
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+  expiresAt        DateTime @map("expires_at") @db.Timestamptz
+
+  @@id([userId, key])
+  @@map("idempotency_keys")
+  @@index([expiresAt])
+}
+
+// =============================================================================
+// Outbox events (audit fix A3)
+// =============================================================================
+
+model OutboxEvent {
+  id           BigInt    @id @default(autoincrement())
+  tenantId     String    @default("00000000-0000-0000-0000-000000000000") @map("tenant_id") @db.Uuid
+  occurredAt   DateTime  @default(now()) @map("occurred_at") @db.Timestamptz
+  aggregate    String
+  aggregateId  String    @map("aggregate_id") @db.Uuid
+  topic        String
+  payload      Json      @db.JsonB
+  deliveredAt  DateTime? @map("delivered_at") @db.Timestamptz
+  attempts     Int       @default(0)
+  lastError    String?   @map("last_error")
+
+  @@map("outbox_events")
+  @@index([aggregate, aggregateId, id])
+}
