@@ -1,0 +1,67 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+.pnp.*
+
+# Build outputs
+dist/
+build/
+out/
+.next/
+.turbo/
+.cache/
+*.tsbuildinfo
+
+# Coverage / test artifacts
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+secrets/
+.vault-token
+
+# Editors
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json.example
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Docker / runtime
+.docker/
+docker-compose.override.yaml
+docker-compose.override.yml
+
+# Generated
+generated/
+docs/api/openapi.yaml.tmp
+
+# Recordings (eval harness; opt-in commits only)
+tools/eval-harness/recordings/
+
+# Browser artifacts (worker)
+playwright-storage/
+chromium-cache/
+
+# Local Vault dev data
+.vault-data/
+
+# OS
+Thumbs.db
+ehthumbs.db

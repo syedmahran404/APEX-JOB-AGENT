@@ -1,0 +1,17 @@
+{
+  "changelog": "@changesets/cli/changelog",
+  "commit": false,
+  "fixed": [],
+  "linked": [],
+  "access": "restricted",
+  "baseBranch": "main",
+  "updateInternalDependencies": "patch",
+  "ignore": [
+    "@apex/web",
+    "@apex/api",
+    "@apex/orchestrator",
+    "@apex/ai-service",
+    "@apex/automation-worker",
+    "@apex/analytics"
+  ]
+}
