@@ -149,6 +149,55 @@ importers:
         specifier: ^2.1.1
         version: 2.1.9(@types/node@20.19.41)(jsdom@25.0.1)(terser@5.48.0)
 
+  apps/automation-worker:
+    dependencies:
+      '@apex/automation-core':
+        specifier: workspace:^
+        version: link:../../packages/automation-core
+      '@apex/platform-adapter-linkedin':
+        specifier: workspace:^
+        version: link:../../packages/platform-adapters/linkedin
+      '@apex/queue':
+        specifier: workspace:^
+        version: link:../../packages/queue
+      '@apex/shared-config':
+        specifier: workspace:^
+        version: link:../../packages/shared-config
+      '@apex/shared-errors':
+        specifier: workspace:^
+        version: link:../../packages/shared-errors
+      '@apex/shared-events':
+        specifier: workspace:^
+        version: link:../../packages/shared-events
+      '@apex/shared-logger':
+        specifier: workspace:^
+        version: link:../../packages/shared-logger
+      '@apex/shared-types':
+        specifier: workspace:^
+        version: link:../../packages/shared-types
+      '@apex/vault-client':
+        specifier: workspace:^
+        version: link:../../packages/vault-client
+      playwright-core:
+        specifier: ^1.47.2
+        version: 1.60.0
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20.16.10
+        version: 20.19.41
+      tsx:
+        specifier: ^4.19.1
+        version: 4.22.4
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.1
+        version: 2.1.9(@types/node@20.19.41)(jsdom@25.0.1)(terser@5.48.0)
+
   apps/web:
     dependencies:
       '@tanstack/react-query':
@@ -3398,6 +3447,11 @@ packages:
   pirates@4.0.7:
     resolution: {integrity: sha512-TfySrs/5nm8fQJDcBDuUng3VOUKsd7S+zqvbOTiGXHfxX4wK31ard+hoNuvkicM/2YFzlpDgABOevKSsB4G/FA==}
     engines: {node: '>= 6'}
+
+  playwright-core@1.60.0:
+    resolution: {integrity: sha512-9bW6zvX/m0lEbgTKJ6YppOKx8H3VOPBMOCFh2irXFOT4BbHgrx5hPjwJYLT40Lu+4qtD36qKc/Hn56StUW57IA==}
+    engines: {node: '>=18'}
+    hasBin: true
 
   pluralize@8.0.0:
     resolution: {integrity: sha512-Nc3IT5yHzflTfbjgqWcCPpo7DaKy4FnpB0l/zCAW0Tc7jxAiuqSxHasntB3D7887LSrA93kDJ9IXovxJYxyLCA==}
@@ -7483,6 +7537,8 @@ snapshots:
       thread-stream: 3.1.0
 
   pirates@4.0.7: {}
+
+  playwright-core@1.60.0: {}
 
   pluralize@8.0.0: {}
 

@@ -28,3 +28,11 @@ export * from './safety/failure-taxonomy.js';
 // Discovery.
 export * from './discovery/freshness.js';
 export * from './discovery/dedupe.js';
+
+// Runtime contracts + pure decision logic (consumed by apps/orchestrator,
+// apps/scheduler, apps/automation-worker).
+export * from './runtime/tasks.js';
+export * from './runtime/run-plan.js';
+export * from './runtime/recovery.js';
+export * from './runtime/screenshots.js';
+export * from './runtime/scheduling.js';
