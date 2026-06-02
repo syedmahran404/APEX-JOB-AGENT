@@ -198,6 +198,83 @@ importers:
         specifier: ^2.1.1
         version: 2.1.9(@types/node@20.19.41)(jsdom@25.0.1)(terser@5.48.0)
 
+  apps/orchestrator:
+    dependencies:
+      '@apex/automation-core':
+        specifier: workspace:^
+        version: link:../../packages/automation-core
+      '@apex/db':
+        specifier: workspace:^
+        version: link:../../packages/db
+      '@apex/queue':
+        specifier: workspace:^
+        version: link:../../packages/queue
+      '@apex/shared-config':
+        specifier: workspace:^
+        version: link:../../packages/shared-config
+      '@apex/shared-errors':
+        specifier: workspace:^
+        version: link:../../packages/shared-errors
+      '@apex/shared-events':
+        specifier: workspace:^
+        version: link:../../packages/shared-events
+      '@apex/shared-logger':
+        specifier: workspace:^
+        version: link:../../packages/shared-logger
+      '@apex/shared-types':
+        specifier: workspace:^
+        version: link:../../packages/shared-types
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20.16.10
+        version: 20.19.41
+      tsx:
+        specifier: ^4.19.1
+        version: 4.22.4
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.1
+        version: 2.1.9(@types/node@20.19.41)(jsdom@25.0.1)(terser@5.48.0)
+
+  apps/scheduler:
+    dependencies:
+      '@apex/automation-core':
+        specifier: workspace:^
+        version: link:../../packages/automation-core
+      '@apex/shared-config':
+        specifier: workspace:^
+        version: link:../../packages/shared-config
+      '@apex/shared-errors':
+        specifier: workspace:^
+        version: link:../../packages/shared-errors
+      '@apex/shared-logger':
+        specifier: workspace:^
+        version: link:../../packages/shared-logger
+      '@apex/shared-types':
+        specifier: workspace:^
+        version: link:../../packages/shared-types
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20.16.10
+        version: 20.19.41
+      tsx:
+        specifier: ^4.19.1
+        version: 4.22.4
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.1
+        version: 2.1.9(@types/node@20.19.41)(jsdom@25.0.1)(terser@5.48.0)
+
   apps/web:
     dependencies:
       '@tanstack/react-query':
