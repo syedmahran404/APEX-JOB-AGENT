@@ -327,6 +327,28 @@ importers:
         specifier: ^2.1.1
         version: 2.1.9(@types/node@20.19.41)(jsdom@25.0.1)(terser@5.48.0)
 
+  packages/ai-core:
+    dependencies:
+      '@apex/shared-errors':
+        specifier: workspace:^
+        version: link:../shared-errors
+      '@apex/shared-types':
+        specifier: workspace:^
+        version: link:../shared-types
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20.16.10
+        version: 20.19.41
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.1
+        version: 2.1.9(@types/node@20.19.41)(jsdom@25.0.1)(terser@5.48.0)
+
   packages/automation-core:
     dependencies:
       '@apex/shared-errors':
