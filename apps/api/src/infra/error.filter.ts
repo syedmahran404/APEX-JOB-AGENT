@@ -26,8 +26,13 @@ export class ApexErrorFilter implements ExceptionFilter {
 
     // Normalize Nest's HttpException into something the envelope can carry.
     if (exception instanceof HttpException && !isApexError(exception)) {
-      const body = exception.getResponse();
-      const message = typeof body === 'string' ? body : (body as { message?: string }).message ?? exception.message;
+      const body: unknown = exception.getResponse();
+      const message =
+        typeof body === 'string'
+          ? body
+          : (typeof body === 'object' && body !== null && typeof (body as { message?: unknown }).message === 'string'
+              ? (body as { message: string }).message
+              : exception.message);
       const fakeApex = {
         code: this.mapNestStatusToCode(exception.getStatus()),
         message,
@@ -35,7 +40,7 @@ export class ApexErrorFilter implements ExceptionFilter {
         details: undefined,
         traceId: undefined,
       } satisfies Partial<ApexError>;
-      toSerialize = Object.setPrototypeOf({ ...fakeApex }, Error.prototype) as unknown as ApexError;
+      toSerialize = Object.setPrototypeOf({ ...fakeApex }, Error.prototype);
     }
 
     const traceId = (req.headers['x-trace-id'] as string | undefined) ?? undefined;

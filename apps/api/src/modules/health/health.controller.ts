@@ -4,8 +4,9 @@
 
 import { Controller, Get, Inject, Res } from '@nestjs/common';
 import { type FastifyReply } from 'fastify';
-import { type HealthCheckResponse } from '@apex/shared-types';
-import { HealthService, HEALTH_SERVICE } from './health.service.js';
+import type { Api } from '@apex/shared-types';
+import type { HealthService} from './health.service.js';
+import { HEALTH_SERVICE } from './health.service.js';
 
 @Controller()
 export class HealthController {
@@ -17,7 +18,7 @@ export class HealthController {
   }
 
   @Get('readyz')
-  async readiness(@Res({ passthrough: true }) reply: FastifyReply): Promise<HealthCheckResponse> {
+  async readiness(@Res({ passthrough: true }) reply: FastifyReply): Promise<Api.HealthCheckResponse> {
     const result = await this.health.checkReadiness();
     if (result.status !== 'ok') {
       void reply.status(503);

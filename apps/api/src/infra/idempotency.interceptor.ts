@@ -54,7 +54,7 @@ export class IdempotencyInterceptor implements NestInterceptor {
           return of(cached.envelope);
         }
         return next.handle().pipe(
-          switchMap(async (body) => {
+          switchMap(async (body: unknown) => {
             const status = reply.statusCode;
             await this.store.remember({
               userId,
@@ -63,7 +63,7 @@ export class IdempotencyInterceptor implements NestInterceptor {
               path: req.url,
               requestBody: req.body ?? null,
               responseStatus: status,
-              responseEnvelope: body as Record<string, unknown>,
+              responseEnvelope: (body ?? {}) as Record<string, unknown>,
             });
             return body;
           }),

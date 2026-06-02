@@ -91,14 +91,6 @@ tables:
 
   user_permissions:
     columns:
-      user_id: { strategy: keep }
-      permission_id: { strategy: keep }
-      granted_at: { strategy: keep }
-      granted_by: { strategy: keep }
-      scope: { strategy: keep }
-
-  user_permissions:
-    columns:
       id: { strategy: keep }
       user_id: { strategy: keep }
       permission_id: { strategy: keep }

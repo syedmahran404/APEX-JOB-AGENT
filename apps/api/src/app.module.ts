@@ -10,8 +10,8 @@ export interface AppModuleOptions {
   service: string;
   version: string;
   databaseUrl: string;
-  logLevel?: 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace';
-  pretty?: boolean;
+  logLevel?: 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | undefined;
+  pretty?: boolean | undefined;
 }
 
 @Module({})

@@ -56,19 +56,18 @@ export async function moveToDlq<TPayload>(
   reason: string,
   connections: BullConnections,
 ): Promise<void> {
-  const dlq = new Queue<TPayload & { __dlq: { fromQueue: string; reason: string; failedAt: string } }>(
-    dlqName(job.queueName as QueueName),
-    { connection: connections.client },
-  );
+  // Type the DLQ with a concrete (non-generic) data type so BullMQ's
+  // ExtractNameType resolves the job-name parameter to `string`. A free type
+  // parameter in the Queue's data type leaves that conditional type unresolved.
+  const dlq = new Queue<Record<string, unknown>>(dlqName(job.queueName as QueueName), {
+    connection: connections.client,
+  });
   try {
-    await dlq.add(
-      'dead-letter',
-      {
-        ...job.data,
-        __dlq: { fromQueue: job.queueName, reason, failedAt: new Date().toISOString() },
-      },
-      { removeOnComplete: true },
-    );
+    const message: Record<string, unknown> = {
+      ...(job.data as unknown as Record<string, unknown>),
+      __dlq: { fromQueue: job.queueName, reason, failedAt: new Date().toISOString() },
+    };
+    await dlq.add('dead-letter', message, { removeOnComplete: true });
   } finally {
     await dlq.close();
   }

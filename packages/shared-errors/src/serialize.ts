@@ -1,7 +1,7 @@
 // Serialize ApexError → wire envelope. The envelope shape is also the contract
 // returned by the API gateway's error filter; the web SDK parses it.
 
-import { type ApexError, isApexError, InternalError, type ErrorCode, ValidationError } from './errors.js';
+import { isApexError, InternalError, type ErrorCode, ValidationError } from './errors.js';
 
 export interface ErrorEnvelope {
   ok: false;

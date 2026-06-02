@@ -1,0 +1,70 @@
+{
+  "description": "Offline fixtures: raw extracted fields from LinkedIn job detail pages. Used by parse.test.ts to verify parseJob + apply-kind detection without a browser.",
+  "jobs": [
+    {
+      "name": "easy_apply_open",
+      "raw": {
+        "url": "https://www.linkedin.com/jobs/view/3856120947",
+        "title": "Senior Backend Engineer",
+        "company": "Acme Corp",
+        "location": "Bengaluru, India",
+        "postedRelative": "3 hours ago",
+        "workplaceType": "Remote",
+        "description": "We are looking for a senior backend engineer with Node.js and PostgreSQL experience.",
+        "salaryText": "INR 40,00,000 - 60,00,000",
+        "applyButtonText": "Easy Apply"
+      },
+      "expectApplyKind": "quick"
+    },
+    {
+      "name": "external_redirect",
+      "raw": {
+        "url": "https://www.linkedin.com/jobs/view/3990001122",
+        "title": "Platform Engineer",
+        "company": "Globex",
+        "postedRelative": "5 hours ago",
+        "description": "Apply via our careers site.",
+        "applyButtonText": "Apply on company website"
+      },
+      "expectApplyKind": "external_redirect"
+    },
+    {
+      "name": "multi_step_apply",
+      "raw": {
+        "url": "https://www.linkedin.com/jobs/view/4001234567",
+        "title": "Go Developer",
+        "company": "Hooli",
+        "postedRelative": "8 hours ago",
+        "description": "Multi-step application.",
+        "applyButtonText": "Apply"
+      },
+      "expectApplyKind": "multi_step"
+    },
+    {
+      "name": "already_applied",
+      "raw": {
+        "url": "https://www.linkedin.com/jobs/view/4111111111",
+        "title": "SRE",
+        "company": "Initech",
+        "postedRelative": "1 day ago",
+        "description": "Reliability role.",
+        "applyButtonText": "Easy Apply",
+        "alreadyApplied": true
+      },
+      "expectApplyKind": "already_applied"
+    },
+    {
+      "name": "closed_job",
+      "raw": {
+        "url": "https://www.linkedin.com/jobs/view/4222222222",
+        "title": "Frontend Engineer",
+        "company": "Umbrella",
+        "postedRelative": "4 days ago",
+        "description": "No longer accepting applications.",
+        "applyButtonText": "Easy Apply",
+        "closed": true
+      },
+      "expectApplyKind": "closed"
+    }
+  ]
+}

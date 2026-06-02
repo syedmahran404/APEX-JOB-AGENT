@@ -8,7 +8,7 @@ import { PrismaClient } from '@prisma/client';
 export type Prisma = PrismaClient;
 
 declare global {
-  // eslint-disable-next-line no-var
+   
   var __apexPrisma: PrismaClient | undefined;
 }
 

@@ -25,7 +25,7 @@ export interface ApexErrorOptions {
   /** HTTP status code; the API gateway maps to this. */
   status: number;
   /** Optional structured details (must already be redacted of PII by the throw site). */
-  details?: Record<string, unknown>;
+  details?: Record<string, unknown> | undefined;
   /** Optional underlying cause; not serialized to clients. */
   cause?: unknown;
   /** Optional W3C trace id; populated by the API gateway error filter when available. */

@@ -38,7 +38,7 @@ export default [
         ...globals.es2022,
       },
       parserOptions: {
-        project: ['./tsconfig.base.json', './packages/*/tsconfig.json', './apps/*/tsconfig.json'],
+        project: ['./tsconfig.eslint.json'],
         tsconfigRootDir: import.meta.dirname,
       },
     },

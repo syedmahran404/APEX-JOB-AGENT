@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { type HealthCheckResponse } from '@apex/shared-types';
+import type { Api } from '@apex/shared-types';
 import type { PrismaClient } from '@apex/db';
 import { PRISMA } from '../../infra/database/database.module.js';
 
@@ -11,8 +11,8 @@ export class HealthService {
 
   constructor(@Inject(PRISMA) private readonly prisma: PrismaClient) {}
 
-  async checkReadiness(): Promise<HealthCheckResponse> {
-    const checks: HealthCheckResponse['checks'] = {};
+  async checkReadiness(): Promise<Api.HealthCheckResponse> {
+    const checks: Api.HealthCheckResponse['checks'] = {};
 
     const t0 = performance.now();
     try {

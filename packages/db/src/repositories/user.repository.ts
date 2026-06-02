@@ -24,7 +24,7 @@ export class UserRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
   async create(input: CreateUserInput, tx?: TxClient): Promise<PrismaUser> {
-    const client = tx ?? (this.prisma as unknown as TxClient);
+    const client = tx ?? (this.prisma);
     return (client as unknown as PrismaClient).user.create({
       data: {
         tenantId: input.tenantId,
@@ -56,7 +56,7 @@ export class UserRepository {
   }
 
   async updateLoginState(input: UpdateLoginStateInput, tx?: TxClient): Promise<PrismaUser> {
-    const client = (tx ?? (this.prisma as unknown as TxClient)) as unknown as PrismaClient;
+    const client = (tx ?? (this.prisma)) as PrismaClient;
     if (input.succeeded) {
       return client.user.update({
         where: { id: input.userId },
@@ -71,7 +71,7 @@ export class UserRepository {
 
   /** Soft-delete the user; the reaper hard-deletes after grace. */
   async softDelete(userId: string, tx?: TxClient): Promise<void> {
-    const client = (tx ?? (this.prisma as unknown as TxClient)) as unknown as PrismaClient;
+    const client = (tx ?? (this.prisma)) as PrismaClient;
     await client.user.update({
       where: { id: userId },
       data: { deletedAt: new Date(), status: 'deleted' },

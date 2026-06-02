@@ -52,19 +52,22 @@ export async function createRealtimeServer(opts: RealtimeServerOptions): Promise
   io.adapter(createAdapter(pub, sub));
 
   // Auth middleware: extract session cookie from the upgrade request.
-  io.use(async (socket, next) => {
-    try {
-      const auth = await opts.authorize(socket.request);
-      if (!auth) {
-        next(new Error('unauthenticated'));
-        return;
+  io.use((socket, next) => {
+    void (async () => {
+      try {
+        const auth = await opts.authorize(socket.request);
+        if (!auth) {
+          next(new Error('unauthenticated'));
+          return;
+        }
+        const data = socket.data as { userId?: string; tenantId?: string };
+        data.userId = auth.userId;
+        data.tenantId = auth.tenantId;
+        next();
+      } catch (err) {
+        next(err instanceof Error ? err : new Error('unauthenticated'));
       }
-      socket.data.userId = auth.userId;
-      socket.data.tenantId = auth.tenantId;
-      next();
-    } catch (err) {
-      next(err instanceof Error ? err : new Error('unauthenticated'));
-    }
+    })();
   });
 
   // Default room joins: every authed socket joins `events:user:<userId>`.

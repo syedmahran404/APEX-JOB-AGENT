@@ -9,8 +9,8 @@ export const LOGGER = Symbol('APEX_LOGGER');
 export interface LoggerModuleOptions {
   service: string;
   version: string;
-  level?: 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace';
-  pretty?: boolean;
+  level?: 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | undefined;
+  pretty?: boolean | undefined;
 }
 
 @Global()

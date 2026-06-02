@@ -24,6 +24,7 @@
     "socket.io": "^4.8.0"
   },
   "devDependencies": {
+    "@types/node": "^20.16.10",
     "typescript": "^5.5.4"
   }
 }

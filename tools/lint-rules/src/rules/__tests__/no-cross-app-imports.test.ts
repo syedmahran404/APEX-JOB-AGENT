@@ -20,7 +20,7 @@ ruleTester.run('no-cross-app-imports', noCrossAppImports, {
       filename: '/repo/apps/api/src/x.ts',
     },
     {
-      code: "import { x } from '../../packages/shared-errors/src/x.js';",
+      code: "import { x } from '../../../packages/shared-errors/src/x.js';",
       filename: '/repo/apps/api/src/x.ts',
     },
     {

@@ -3,7 +3,7 @@
 // the PG-backed backstop already provides correctness.
 
 import { Injectable, Inject } from '@nestjs/common';
-import { IdempotencyRepository } from '@apex/db';
+import type { IdempotencyRepository } from '@apex/db';
 import type { IdempotencyStore } from '../idempotency.interceptor.js';
 import { LOGGER } from '../logger/logger.module.js';
 import type { Logger } from '@apex/shared-logger';

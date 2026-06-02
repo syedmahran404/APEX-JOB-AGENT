@@ -2,6 +2,7 @@
   "ui": "stream",
   "globalDependencies": [
     "tsconfig.base.json",
+    "tsconfig.eslint.json",
     ".eslintrc*",
     "eslint.config.js",
     ".prettierrc.cjs",
@@ -18,9 +19,11 @@
       "outputs": []
     },
     "lint": {
+      "dependsOn": ["^build"],
       "outputs": []
     },
     "test:unit": {
+      "dependsOn": ["^build"],
       "outputs": ["coverage/**"]
     },
     "test:integration": {

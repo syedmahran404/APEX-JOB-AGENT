@@ -550,6 +550,10 @@ CREATE TABLE applications (
   UNIQUE (user_id, job_id),                     -- never apply twice to same job
   UNIQUE (idempotency_key)
 );
+-- AUDIT CORRECTION (A1, S1): the hard `UNIQUE (user_id, job_id)` above is SUPERSEDED
+-- by a partial unique index that excludes failed/skipped/duplicate statuses, so a
+-- legitimate retry after a transient failure is not permanently blocked. The
+-- `UNIQUE (idempotency_key)` guard is retained. See docs/audit/05-database-additions.md §1.1.
 CREATE INDEX applications_user_status_idx ON applications(user_id, status, submitted_at DESC);
 CREATE INDEX applications_run_idx ON applications(run_id);
 
@@ -751,7 +755,7 @@ The database is the last line of defense. Application code is fast; database con
 
 | Invariant | Mechanism |
 | --- | --- |
-| Never apply twice for the same job | `UNIQUE (user_id, job_id)` on `applications`. |
+| Never apply twice for the same job | Partial unique index on `applications(user_id, job_id) WHERE status NOT IN (failed/skipped/duplicate)` — **supersedes** the hard `UNIQUE (user_id, job_id)` (audit A1, S1; see docs/audit/05-database-additions.md §1.1). Allows retry after transient failure while preventing duplicate live applications. |
 | Idempotent retries | `UNIQUE (idempotency_key)` on `applications` and `job_runs`. |
 | At most one default resume per user | Partial unique index `WHERE is_default = true AND deleted_at IS NULL`. |
 | Resume version chain monotonic | `UNIQUE (resume_id, version_no)` and trigger ensures `parent_id` belongs to same `resume_id`. |

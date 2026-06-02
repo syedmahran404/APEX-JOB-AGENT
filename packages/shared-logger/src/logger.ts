@@ -6,6 +6,8 @@
 
 import pino, { type Logger as PinoLogger, type LoggerOptions as PinoLoggerOptions } from 'pino';
 import { REDACT_PATHS, REDACTED, scrubEnvelopedFields } from './redaction.js';
+// Type-only import (erased at runtime); @opentelemetry/api stays an optional dep.
+import type * as OtelApi from '@opentelemetry/api';
 
 export interface LogContext {
   traceId?: string;
@@ -26,11 +28,11 @@ export interface LoggerOptions {
   /** Service version (e.g. from package.json). */
   version: string;
   /** Pino level. */
-  level?: pino.LevelWithSilent;
+  level?: pino.LevelWithSilent | undefined;
   /** When true, emits human-readable output (development only). */
-  pretty?: boolean;
+  pretty?: boolean | undefined;
   /** Bind extra context to every line. */
-  base?: Record<string, unknown>;
+  base?: Record<string, unknown> | undefined;
 }
 
 /**
@@ -40,8 +42,8 @@ export interface LoggerOptions {
 function readActiveSpan(): { traceId?: string; spanId?: string } {
   try {
     // dynamic require so the dependency stays optional
-    // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
-    const otel = require('@opentelemetry/api') as typeof import('@opentelemetry/api');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const otel = require('@opentelemetry/api') as typeof OtelApi;
     const ctx = otel.context.active();
     const span = otel.trace.getSpan(ctx);
     if (!span) return {};
@@ -87,7 +89,7 @@ export function createLogger(opts: LoggerOptions): Logger {
       logMethod(args, method) {
         // Strip *_enc / *_wrapped keys recursively from any object payload.
         if (args.length >= 1 && typeof args[0] === 'object' && args[0] !== null) {
-          args[0] = scrubEnvelopedFields(args[0]) as Record<string, unknown>;
+          args[0] = scrubEnvelopedFields(args[0]);
         }
         return method.apply(this, args);
       },
@@ -95,13 +97,11 @@ export function createLogger(opts: LoggerOptions): Logger {
   };
 
   if (opts.pretty === true) {
-    return pino(
-      baseOptions,
-      pino.transport({
-        target: 'pino-pretty',
-        options: { colorize: true, translateTime: 'SYS:standard', singleLine: false },
-      }),
-    );
+    const transport = pino.transport({
+      target: 'pino-pretty',
+      options: { colorize: true, translateTime: 'SYS:standard', singleLine: false },
+    }) as pino.DestinationStream;
+    return pino(baseOptions, transport);
   }
   return pino(baseOptions);
 }

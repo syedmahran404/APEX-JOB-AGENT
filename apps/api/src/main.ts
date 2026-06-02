@@ -76,14 +76,14 @@ async function bootstrap(): Promise<void> {
       .then(() => disconnectPrisma())
       .then(() => process.exit(0))
       .catch(() => process.exit(1));
-    // eslint-disable-next-line no-console
+     
     console.warn('shutdown signal received:', signal);
   };
   process.on('SIGINT', shutdown('SIGINT'));
   process.on('SIGTERM', shutdown('SIGTERM'));
 
   await app.listen({ host: config.HOST, port: config.PORT });
-  // eslint-disable-next-line no-console
+   
   console.warn(
     `apex-api listening on ${config.HOST}:${String(config.PORT)} env=${config.NODE_ENV} version=${config.SERVICE_VERSION}`,
   );
@@ -91,7 +91,7 @@ async function bootstrap(): Promise<void> {
 
 bootstrap().catch((err: unknown) => {
   // We don't have a logger if loadConfig itself failed.
-  // eslint-disable-next-line no-console
+   
   console.error('Failed to bootstrap apex-api:', err);
   process.exit(1);
 });

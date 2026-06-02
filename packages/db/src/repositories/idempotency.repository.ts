@@ -33,7 +33,7 @@ export class IdempotencyRepository {
    *   - request hash differs → throw IdempotencyMismatchError.
    */
   async remember(input: RememberInput, tx?: TxClient): Promise<RecallResult> {
-    const client = (tx ?? (this.prisma as unknown as TxClient)) as unknown as PrismaClient;
+    const client = (tx ?? (this.prisma)) as PrismaClient;
     const requestHash = this.hashRequest(input.requestBody);
     const expiresAt = new Date(Date.now() + input.ttlSec * 1000);
 
