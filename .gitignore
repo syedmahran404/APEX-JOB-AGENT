@@ -65,3 +65,8 @@ chromium-cache/
 # OS
 Thumbs.db
 ehthumbs.db
+
+
+# Local infra/runtime scratch (never committed)
+.pgdata/
+.probe/

@@ -75,13 +75,12 @@ describe.runIf(RUN)('REAL Playwright browser (STEP 8)', () => {
 
   it('persists and restores storage state (cookie/session persistence)', async () => {
     if (!browser) throw new Error('no browser');
-    // First context sets a cookie via document.cookie on a real origin.
+    // First context: verify storage state can be serialized.
     const ctx1 = await browser.newContext({
       device: generateDeviceProfile({ userId: 'e2e-user' }),
       allowedHosts: ['example.com'],
     });
-    const page1 = await ctx1.newPage();
-    // about:blank origin can't set cookies; use an addCookies-style via storageState round-trip.
+    await ctx1.newPage();
     const empty = await ctx1.storageState();
     expect(Array.isArray(empty.cookies)).toBe(true);
     await ctx1.close();

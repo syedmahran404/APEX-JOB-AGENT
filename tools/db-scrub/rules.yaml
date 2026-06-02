@@ -155,3 +155,172 @@ tables:
       delivered_at: { strategy: keep }
       attempts: { strategy: keep }
       last_error: { strategy: drop }
+
+
+  # ---------------------------------------------------------------------------
+  # AI engine (Phase 3)
+  # ---------------------------------------------------------------------------
+  prompt_registry:
+    columns:
+      id: { strategy: keep }
+      key: { strategy: keep }
+      version: { strategy: keep }
+      tier: { strategy: keep }
+      temperature: { strategy: keep }
+      max_tokens: { strategy: keep }
+      response_format: { strategy: keep }
+      config: { strategy: keep }
+      is_active: { strategy: keep }
+      created_at: { strategy: keep }
+      updated_at: { strategy: keep }
+
+  ai_decisions:
+    columns:
+      id: { strategy: keep }
+      tenant_id: { strategy: keep }
+      user_id: { strategy: keep }
+      prompt_key: { strategy: keep }
+      prompt_version: { strategy: keep }
+      tier: { strategy: keep }
+      model: { strategy: keep }
+      scope_kind: { strategy: keep }
+      scope_id: { strategy: keep }
+      inputs: { strategy: drop }
+      output: { strategy: drop }
+      validation_error: { strategy: drop }
+      governor_action: { strategy: keep }
+      safety_score: { strategy: keep }
+      safety_action: { strategy: keep }
+      cost_usd: { strategy: keep }
+      input_tokens: { strategy: keep }
+      output_tokens: { strategy: keep }
+      latency_ms: { strategy: keep }
+      trace_id: { strategy: keep }
+      occurred_at: { strategy: keep }
+
+  ai_cost_ledger:
+    columns:
+      user_id: { strategy: keep }
+      tenant_id: { strategy: keep }
+      day: { strategy: keep }
+      spent_usd: { strategy: keep }
+      ceiling_usd: { strategy: keep }
+      calls: { strategy: keep }
+      updated_at: { strategy: keep }
+
+  qa_memory:
+    columns:
+      id: { strategy: keep }
+      user_id: { strategy: keep }
+      tenant_id: { strategy: keep }
+      question_norm: { strategy: hash }
+      answer_enc: { strategy: drop }
+      dek_version: { strategy: keep }
+      field_kind: { strategy: keep }
+      used_count: { strategy: keep }
+      is_locked: { strategy: keep }
+      quarantined: { strategy: keep }
+      application_id: { strategy: keep }
+      created_at: { strategy: keep }
+      updated_at: { strategy: keep }
+
+  frequent_answers:
+    columns:
+      id: { strategy: keep }
+      user_id: { strategy: keep }
+      tenant_id: { strategy: keep }
+      label: { strategy: keep }
+      value_enc: { strategy: drop }
+      dek_version: { strategy: keep }
+      is_locked: { strategy: keep }
+      created_at: { strategy: keep }
+      updated_at: { strategy: keep }
+
+  answer_history:
+    columns:
+      id: { strategy: keep }
+      user_id: { strategy: keep }
+      tenant_id: { strategy: keep }
+      application_id: { strategy: keep }
+      question_norm: { strategy: hash }
+      source: { strategy: keep }
+      ai_decision_id: { strategy: keep }
+      value_redacted: { strategy: drop }
+      created_at: { strategy: keep }
+
+  embeddings_1024:
+    columns:
+      id: { strategy: keep }
+      user_id: { strategy: keep }
+      tenant_id: { strategy: keep }
+      owner_kind: { strategy: keep }
+      owner_id: { strategy: keep }
+      model: { strategy: keep }
+      text_hash: { strategy: drop }
+      created_at: { strategy: keep }
+
+  embeddings_3072:
+    columns:
+      id: { strategy: keep }
+      user_id: { strategy: keep }
+      tenant_id: { strategy: keep }
+      owner_kind: { strategy: keep }
+      owner_id: { strategy: keep }
+      model: { strategy: keep }
+      text_hash: { strategy: drop }
+      created_at: { strategy: keep }
+
+  embedding_refresh_queue:
+    columns:
+      id: { strategy: keep }
+      user_id: { strategy: keep }
+      tenant_id: { strategy: keep }
+      owner_kind: { strategy: keep }
+      owner_id: { strategy: keep }
+      reason: { strategy: keep }
+      enqueued_at: { strategy: keep }
+      processed_at: { strategy: keep }
+      attempts: { strategy: keep }
+
+  resume_versions:
+    columns:
+      id: { strategy: keep }
+      user_id: { strategy: keep }
+      tenant_id: { strategy: keep }
+      version: { strategy: keep }
+      based_on_id: { strategy: keep }
+      label: { strategy: keep }
+      parsed: { strategy: drop }
+      patch_ops: { strategy: drop }
+      artifact_uri: { strategy: drop }
+      ai_decision_id: { strategy: keep }
+      created_at: { strategy: keep }
+
+  profile_recommendations:
+    columns:
+      id: { strategy: keep }
+      user_id: { strategy: keep }
+      tenant_id: { strategy: keep }
+      area: { strategy: keep }
+      issue: { strategy: keep }
+      expected_benefit: { strategy: keep }
+      current_text: { strategy: drop }
+      proposed_text: { strategy: drop }
+      confidence: { strategy: keep }
+      references: { strategy: keep }
+      ai_decision_id: { strategy: keep }
+      status: { strategy: keep }
+      decided_at: { strategy: keep }
+      decided_by: { strategy: keep }
+      created_at: { strategy: keep }
+
+  ai_eval_results:
+    columns:
+      id: { strategy: keep }
+      prompt_key: { strategy: keep }
+      prompt_version: { strategy: keep }
+      case_id: { strategy: keep }
+      passed: { strategy: keep }
+      score: { strategy: keep }
+      details: { strategy: keep }
+      run_at: { strategy: keep }

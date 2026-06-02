@@ -45,6 +45,14 @@ model User {
   roles              UserRole[]
   permissions        UserPermission[]
 
+  // AI engine (Phase 3) back-relations.
+  qaMemories             QaMemory[]
+  frequentAnswers        FrequentAnswer[]
+  embeddings1024         Embedding1024[]
+  embeddings3072         Embedding3072[]
+  resumeVersions         ResumeVersion[]
+  profileRecommendations ProfileRecommendation[]
+
   @@map("users")
   @@index([tenantId])
 }
@@ -260,4 +268,269 @@ model OutboxEvent {
 
   @@map("outbox_events")
   @@index([aggregate, aggregateId, id])
+}
+
+
+// =============================================================================
+// AI engine (Phase 3)
+//
+// References: docs/architecture/07-ai-engine.md §4–§14;
+//             docs/audit/05-database-additions.md (A2 per-dim embeddings,
+//             B1 atomic cost ledger, D3 qa quarantine, A6 dek_version).
+//
+// pgvector columns (`embeddings_*.vector`) are added as raw SQL in the migration
+// because Prisma has no native `vector` type. Prisma models below model every
+// non-vector column so the repositories are typed; the migration's `-- raw:`
+// block adds the vector column, the read VIEW, and the HNSW/IVFFlat indexes.
+// =============================================================================
+
+/// Versioned prompt registry — every (key, version) the AI gateway can run.
+model PromptRegistry {
+  id            String   @id @default(uuid()) @db.Uuid
+  key           String
+  version       Int
+  tier          String
+  temperature   Float
+  maxTokens     Int      @map("max_tokens")
+  responseFormat String  @map("response_format")
+  /// JSON-encoded safety rules + fallback ladder (audited config, not secrets).
+  config        Json     @default("{}") @map("config") @db.JsonB
+  isActive      Boolean  @default(false) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([key, version], map: "prompt_registry_key_version_idx")
+  @@index([key, isActive])
+  @@map("prompt_registry")
+}
+
+/// One row per consequential AI call. `inputs` is PII-redacted before write.
+/// Partitioned weekly in production (raw SQL); modeled here as a plain table.
+model AiDecision {
+  id              BigInt   @id @default(autoincrement())
+  tenantId        String   @default("00000000-0000-0000-0000-000000000000") @map("tenant_id") @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  promptKey       String   @map("prompt_key")
+  promptVersion   Int      @map("prompt_version")
+  tier            String
+  model           String
+  scopeKind       String   @map("scope_kind")
+  scopeId         String   @map("scope_id") @db.Uuid
+  inputs          Json     @default("{}") @db.JsonB
+  output          Json     @default("{}") @db.JsonB
+  validationError String?  @map("validation_error")
+  governorAction  String?  @map("governor_action")
+  safetyScore     Decimal? @map("safety_score") @db.Decimal(4, 3)
+  safetyAction    String?  @map("safety_action")
+  costUsd         Decimal  @default(0) @map("cost_usd") @db.Decimal(12, 6)
+  inputTokens     Int      @default(0) @map("input_tokens")
+  outputTokens    Int      @default(0) @map("output_tokens")
+  latencyMs       Int      @default(0) @map("latency_ms")
+  traceId         String?  @map("trace_id")
+  occurredAt      DateTime @default(now()) @map("occurred_at") @db.Timestamptz
+
+  @@map("ai_decisions")
+  @@index([userId, occurredAt(sort: Desc)])
+  @@index([scopeKind, scopeId])
+  @@index([promptKey, promptVersion])
+}
+
+/// Per-user daily AI spend ledger. The atomic debit (audit B1) is enforced by a
+/// SQL function added in the migration: it does the race-free
+/// `UPDATE ... SET spent = spent + $cost WHERE spent + $cost <= ceiling RETURNING`.
+model AiCostLedger {
+  userId        String   @map("user_id") @db.Uuid
+  tenantId      String   @default("00000000-0000-0000-0000-000000000000") @map("tenant_id") @db.Uuid
+  day           DateTime @map("day") @db.Date
+  spentUsd      Decimal  @default(0) @map("spent_usd") @db.Decimal(12, 6)
+  ceilingUsd    Decimal  @default(0) @map("ceiling_usd") @db.Decimal(12, 6)
+  calls         Int      @default(0)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@id([userId, day])
+  @@map("ai_cost_ledger")
+  @@index([tenantId, day])
+}
+
+/// Cross-application answer consistency store. `answer_enc` is encrypted with the
+/// user DEK (dek_version for rotation, audit A6). `quarantined` blocks reuse of
+/// answers derived from prompt-injection-suspected postings (audit D3).
+model QaMemory {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  tenantId      String   @default("00000000-0000-0000-0000-000000000000") @map("tenant_id") @db.Uuid
+  questionNorm  String   @map("question_norm")
+  answerEnc     Bytes    @map("answer_enc")
+  dekVersion    Int      @default(1) @map("dek_version") @db.SmallInt
+  fieldKind     String   @map("field_kind")
+  usedCount     Int      @default(0) @map("used_count")
+  isLocked      Boolean  @default(false) @map("is_locked")
+  quarantined   Boolean  @default(false)
+  /// Decoupled (no FK) per audit A5 — lifecycle is independent of applications.
+  applicationId String?  @map("application_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, questionNorm], map: "qa_memory_user_question_idx")
+  @@map("qa_memory")
+  @@index([userId, usedCount(sort: Desc)])
+}
+
+/// Frequent (often user-locked) canonical answers — distinct from per-question
+/// qa_memory; these are profile-level facts (notice period, work auth, etc.).
+model FrequentAnswer {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  tenantId     String   @default("00000000-0000-0000-0000-000000000000") @map("tenant_id") @db.Uuid
+  label        String
+  valueEnc     Bytes    @map("value_enc")
+  dekVersion   Int      @default(1) @map("dek_version") @db.SmallInt
+  isLocked     Boolean  @default(true) @map("is_locked")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, label], map: "frequent_answers_user_label_idx")
+  @@map("frequent_answers")
+}
+
+/// Append-only history of every answer actually submitted on a platform form,
+/// with its source (frequent_answer | qa_memory | ai_generated | user_intervention).
+model AnswerHistory {
+  id            BigInt   @id @default(autoincrement())
+  userId        String   @map("user_id") @db.Uuid
+  tenantId      String   @default("00000000-0000-0000-0000-000000000000") @map("tenant_id") @db.Uuid
+  applicationId String?  @map("application_id") @db.Uuid
+  questionNorm  String   @map("question_norm")
+  source        String
+  aiDecisionId  BigInt?  @map("ai_decision_id")
+  /// Redacted form only (raw value never stored here).
+  valueRedacted String   @map("value_redacted")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("answer_history")
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([applicationId])
+}
+
+/// Embedding metadata, split per dimension (audit A2). The `vector` column and
+/// ANN indexes are added in the migration's raw SQL block (Prisma has no vector
+/// type). 1024-dim table.
+model Embedding1024 {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  tenantId    String   @default("00000000-0000-0000-0000-000000000000") @map("tenant_id") @db.Uuid
+  ownerKind   String   @map("owner_kind")
+  ownerId     String   @map("owner_id") @db.Uuid
+  model       String
+  textHash    Bytes    @map("text_hash")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("embeddings_1024")
+  @@index([userId, ownerKind, ownerId], map: "embeddings_1024_user_owner_idx")
+}
+
+/// 3072-dim embedding metadata (audit A2). Vector column added via raw SQL.
+model Embedding3072 {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  tenantId    String   @default("00000000-0000-0000-0000-000000000000") @map("tenant_id") @db.Uuid
+  ownerKind   String   @map("owner_kind")
+  ownerId     String   @map("owner_id") @db.Uuid
+  model       String
+  textHash    Bytes    @map("text_hash")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("embeddings_3072")
+  @@index([userId, ownerKind, ownerId], map: "embeddings_3072_user_owner_idx")
+}
+
+/// Queue of embeddings to (re)compute — drained by apps/scheduler (audit D7).
+model EmbeddingRefreshQueue {
+  id           BigInt    @id @default(autoincrement())
+  userId       String    @map("user_id") @db.Uuid
+  tenantId     String    @default("00000000-0000-0000-0000-000000000000") @map("tenant_id") @db.Uuid
+  ownerKind    String    @map("owner_kind")
+  ownerId      String    @map("owner_id") @db.Uuid
+  reason       String
+  enqueuedAt   DateTime  @default(now()) @map("enqueued_at") @db.Timestamptz
+  processedAt  DateTime? @map("processed_at") @db.Timestamptz
+  attempts     Int       @default(0)
+
+  @@map("embedding_refresh_queue")
+  @@index([enqueuedAt])
+}
+
+/// Resume version chain. Monotonic `version` per user; `parsed` holds the
+/// structured resume; a version is produced by applying a validated ResumePatch.
+model ResumeVersion {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  tenantId      String   @default("00000000-0000-0000-0000-000000000000") @map("tenant_id") @db.Uuid
+  version       Int
+  basedOnId     String?  @map("based_on_id") @db.Uuid
+  label         String?
+  /// Structured resume JSON (sections + items).
+  parsed        Json     @default("{}") @db.JsonB
+  /// Patch ops applied to basedOn to produce this version (audit trail).
+  patchOps      Json     @default("[]") @map("patch_ops") @db.JsonB
+  /// Object-storage key for the rendered artifact (PDF/DOCX), when materialized.
+  artifactUri   String?  @map("artifact_uri")
+  aiDecisionId  BigInt?  @map("ai_decision_id")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, version], map: "resume_versions_user_version_idx")
+  @@map("resume_versions")
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+/// AI profile-optimization recommendations, each approved/rejected individually
+/// (human override, §11). Maps the ProfileReviewOutput suggestions.
+model ProfileRecommendation {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  tenantId        String   @default("00000000-0000-0000-0000-000000000000") @map("tenant_id") @db.Uuid
+  area            String
+  issue           String
+  expectedBenefit String   @map("expected_benefit")
+  currentText     String   @map("current_text")
+  proposedText    String   @map("proposed_text")
+  confidence      Decimal  @db.Decimal(4, 3)
+  references      Json     @default("[]") @db.JsonB
+  aiDecisionId    BigInt?  @map("ai_decision_id")
+  status          String   @default("pending")
+  decidedAt       DateTime? @map("decided_at") @db.Timestamptz
+  decidedBy       String?  @map("decided_by") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("profile_recommendations")
+  @@index([userId, status])
+}
+
+/// Prompt evaluation results — the eval harness writes one row per (prompt
+/// version, eval case) so prompt changes are gated on a passing scorecard.
+model AiEvalResult {
+  id            BigInt   @id @default(autoincrement())
+  promptKey     String   @map("prompt_key")
+  promptVersion Int      @map("prompt_version")
+  caseId        String   @map("case_id")
+  passed        Boolean
+  score         Decimal? @db.Decimal(5, 4)
+  details       Json     @default("{}") @db.JsonB
+  runAt         DateTime @default(now()) @map("run_at") @db.Timestamptz
+
+  @@map("ai_eval_results")
+  @@unique([promptKey, promptVersion, caseId, runAt], map: "ai_eval_results_case_idx")
+  @@index([promptKey, promptVersion])
 }

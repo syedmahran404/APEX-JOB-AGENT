@@ -19,6 +19,11 @@ export {
   type RememberInput,
   type RecallResult,
 } from './repositories/idempotency.repository.js';
+export {
+  AiRepository,
+  type LedgerState,
+  type AiDecisionInsert,
+} from './repositories/ai.repository.js';
 
 // Re-export Prisma types so apps don't import @prisma/client directly.
 export type { User, UserSession, AuditLog, Permission, Role, Platform, Prisma, PrismaClient } from '@prisma/client';
