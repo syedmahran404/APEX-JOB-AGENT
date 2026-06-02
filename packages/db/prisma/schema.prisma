@@ -1,0 +1,536 @@
+// APEX JOB AGENT — Phase 1 schema (M0 subset).
+// Reference: docs/architecture/03-database-design.md + docs/audit/05-database-additions.md.
+//
+// Forward-only migrations. Every model carries `tenant_id` from day one
+// (audit fix A8 multi-tenant readiness). PII columns carry a `dek_version`
+// so background re-encryption is incremental (audit fix A6).
+
+generator client {
+  provider        = "prisma-client-js"
+  binaryTargets   = ["native"]
+  previewFeatures = []
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================================================
+// Identity & access
+// =============================================================================
+
+model User {
+  id                 String     @id @default(uuid()) @db.Uuid
+  tenantId           String     @default("00000000-0000-0000-0000-000000000000") @db.Uuid @map("tenant_id")
+  email              String     @unique @db.Citext
+  displayName        String     @map("display_name")
+  passwordHash       String     @map("password_hash")
+  status             UserStatus @default(active)
+  dataKeyId          String     @map("data_key_id")
+  dataKeyWrapped     Bytes      @map("data_key_wrapped")
+  emailVerifiedAt    DateTime?  @map("email_verified_at") @db.Timestamptz
+  lastLoginAt        DateTime?  @map("last_login_at") @db.Timestamptz
+  failedLoginCount   Int        @default(0) @map("failed_login_count")
+  lockedUntil        DateTime?  @map("locked_until") @db.Timestamptz
+  emailStatus        EmailStatus @default(unverified) @map("email_status")
+  createdAt          DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime   @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt          DateTime?  @map("deleted_at") @db.Timestamptz
+
+  sessions           UserSession[]
+  webauthnCredentials WebauthnCredential[]
+  totpSecret         TotpSecret?
+  recoveryCodes      MfaRecoveryCode[]
+  roles              UserRole[]
+  permissions        UserPermission[]
+
+  // AI engine (Phase 3) back-relations.
+  qaMemories             QaMemory[]
+  frequentAnswers        FrequentAnswer[]
+  embeddings1024         Embedding1024[]
+  embeddings3072         Embedding3072[]
+  resumeVersions         ResumeVersion[]
+  profileRecommendations ProfileRecommendation[]
+
+  @@map("users")
+  @@index([tenantId])
+}
+
+enum UserStatus {
+  active
+  suspended
+  deleted
+
+  @@map("user_status")
+}
+
+enum EmailStatus {
+  unverified
+  verified
+  bouncing
+  complained
+  suppressed
+
+  @@map("email_status_enum")
+}
+
+model UserSession {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  tokenHash  Bytes     @map("token_hash")
+  userAgent  String?   @map("user_agent")
+  ipInet     String?   @map("ip_inet") @db.Inet
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz
+  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_sessions")
+  @@index([userId])
+  @@unique([tokenHash], map: "user_sessions_token_idx")
+}
+
+model WebauthnCredential {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  credentialId Bytes     @unique @map("credential_id")
+  publicKey    Bytes     @map("public_key")
+  signCount    BigInt    @default(0) @map("sign_count")
+  transports   String[]  @default([])
+  deviceLabel  String?   @map("device_label")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  lastUsedAt   DateTime? @map("last_used_at") @db.Timestamptz
+
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("webauthn_credentials")
+  @@index([userId])
+}
+
+model TotpSecret {
+  userId         String    @id @map("user_id") @db.Uuid
+  secretWrapped  Bytes     @map("secret_wrapped")
+  enabledAt      DateTime? @map("enabled_at") @db.Timestamptz
+  lastUsedAt     DateTime? @map("last_used_at") @db.Timestamptz
+  dekVersion     Int       @default(1) @map("dek_version") @db.SmallInt
+
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("totp_secrets")
+}
+
+model MfaRecoveryCode {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  codeHash  Bytes     @map("code_hash")
+  usedAt    DateTime? @map("used_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("mfa_recovery_codes")
+  @@index([userId])
+}
+
+model Role {
+  id     String     @id @default(uuid()) @db.Uuid
+  key    String     @unique
+  label  String
+
+  users  UserRole[]
+
+  @@map("roles")
+}
+
+model UserRole {
+  userId String @map("user_id") @db.Uuid
+  roleId String @map("role_id") @db.Uuid
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+model Permission {
+  id     String           @id @default(uuid()) @db.Uuid
+  key    String           @unique
+  label  String
+
+  users  UserPermission[]
+
+  @@map("permissions")
+}
+
+model UserPermission {
+  id           String     @id @default(uuid()) @db.Uuid
+  userId       String     @map("user_id") @db.Uuid
+  permissionId String     @map("permission_id") @db.Uuid
+  grantedAt    DateTime   @default(now()) @map("granted_at") @db.Timestamptz
+  grantedBy    String?    @map("granted_by") @db.Uuid
+  scope        Json       @default("{}") @db.JsonB
+
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, permissionId], map: "user_permissions_user_permission_idx")
+  @@map("user_permissions")
+}
+
+// =============================================================================
+// Platforms (static catalog)
+// =============================================================================
+
+model Platform {
+  id       String  @id @default(uuid()) @db.Uuid
+  key      String  @unique
+  label    String
+  baseUrl  String  @map("base_url")
+  enabled  Boolean @default(true)
+  ordinal  Int     @db.SmallInt
+
+  @@map("platforms")
+}
+
+// =============================================================================
+// Audit log (per-tenant hash chain — audit fix A8)
+// =============================================================================
+
+model AuditLog {
+  id          BigInt    @id @default(autoincrement())
+  occurredAt  DateTime  @default(now()) @map("occurred_at") @db.Timestamptz
+  actorKind   String    @map("actor_kind")
+  actorId     String?   @map("actor_id") @db.Uuid
+  userId      String?   @map("user_id") @db.Uuid
+  action      String
+  targetKind  String?   @map("target_kind")
+  targetId    String?   @map("target_id") @db.Uuid
+  metadata    Json      @default("{}") @db.JsonB
+  prevHash    Bytes?    @map("prev_hash")
+  hash        Bytes
+  ipInet      String?   @map("ip_inet") @db.Inet
+  userAgent   String?   @map("user_agent")
+  tenantId    String    @default("00000000-0000-0000-0000-000000000000") @map("tenant_id") @db.Uuid
+
+  @@map("audit_log")
+  @@index([userId, occurredAt(sort: Desc)])
+  @@index([action, occurredAt(sort: Desc)])
+  @@index([tenantId, occurredAt(sort: Desc)])
+}
+
+model AuditChainHead {
+  tenantId   String   @id @map("tenant_id") @db.Uuid
+  headHash   Bytes    @map("head_hash")
+  headId     BigInt   @map("head_id")
+  updatedAt  DateTime @default(now()) @map("updated_at") @db.Timestamptz
+
+  @@map("audit_chain_heads")
+}
+
+// =============================================================================
+// Idempotency (audit fix A4)
+// =============================================================================
+
+model IdempotencyKey {
+  userId           String   @map("user_id") @db.Uuid
+  key              String
+  method           String
+  path             String
+  requestHash      Bytes    @map("request_hash")
+  responseStatus   Int      @map("response_status")
+  responseEnvelope Json     @map("response_envelope") @db.JsonB
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+  expiresAt        DateTime @map("expires_at") @db.Timestamptz
+
+  @@id([userId, key])
+  @@map("idempotency_keys")
+  @@index([expiresAt])
+}
+
+// =============================================================================
+// Outbox events (audit fix A3)
+// =============================================================================
+
+model OutboxEvent {
+  id           BigInt    @id @default(autoincrement())
+  tenantId     String    @default("00000000-0000-0000-0000-000000000000") @map("tenant_id") @db.Uuid
+  occurredAt   DateTime  @default(now()) @map("occurred_at") @db.Timestamptz
+  aggregate    String
+  aggregateId  String    @map("aggregate_id") @db.Uuid
+  topic        String
+  payload      Json      @db.JsonB
+  deliveredAt  DateTime? @map("delivered_at") @db.Timestamptz
+  attempts     Int       @default(0)
+  lastError    String?   @map("last_error")
+
+  @@map("outbox_events")
+  @@index([aggregate, aggregateId, id])
+}
+
+
+// =============================================================================
+// AI engine (Phase 3)
+//
+// References: docs/architecture/07-ai-engine.md §4–§14;
+//             docs/audit/05-database-additions.md (A2 per-dim embeddings,
+//             B1 atomic cost ledger, D3 qa quarantine, A6 dek_version).
+//
+// pgvector columns (`embeddings_*.vector`) are added as raw SQL in the migration
+// because Prisma has no native `vector` type. Prisma models below model every
+// non-vector column so the repositories are typed; the migration's `-- raw:`
+// block adds the vector column, the read VIEW, and the HNSW/IVFFlat indexes.
+// =============================================================================
+
+/// Versioned prompt registry — every (key, version) the AI gateway can run.
+model PromptRegistry {
+  id            String   @id @default(uuid()) @db.Uuid
+  key           String
+  version       Int
+  tier          String
+  temperature   Float
+  maxTokens     Int      @map("max_tokens")
+  responseFormat String  @map("response_format")
+  /// JSON-encoded safety rules + fallback ladder (audited config, not secrets).
+  config        Json     @default("{}") @map("config") @db.JsonB
+  isActive      Boolean  @default(false) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([key, version], map: "prompt_registry_key_version_idx")
+  @@index([key, isActive])
+  @@map("prompt_registry")
+}
+
+/// One row per consequential AI call. `inputs` is PII-redacted before write.
+/// Partitioned weekly in production (raw SQL); modeled here as a plain table.
+model AiDecision {
+  id              BigInt   @id @default(autoincrement())
+  tenantId        String   @default("00000000-0000-0000-0000-000000000000") @map("tenant_id") @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  promptKey       String   @map("prompt_key")
+  promptVersion   Int      @map("prompt_version")
+  tier            String
+  model           String
+  scopeKind       String   @map("scope_kind")
+  scopeId         String   @map("scope_id") @db.Uuid
+  inputs          Json     @default("{}") @db.JsonB
+  output          Json     @default("{}") @db.JsonB
+  validationError String?  @map("validation_error")
+  governorAction  String?  @map("governor_action")
+  safetyScore     Decimal? @map("safety_score") @db.Decimal(4, 3)
+  safetyAction    String?  @map("safety_action")
+  costUsd         Decimal  @default(0) @map("cost_usd") @db.Decimal(12, 6)
+  inputTokens     Int      @default(0) @map("input_tokens")
+  outputTokens    Int      @default(0) @map("output_tokens")
+  latencyMs       Int      @default(0) @map("latency_ms")
+  traceId         String?  @map("trace_id")
+  occurredAt      DateTime @default(now()) @map("occurred_at") @db.Timestamptz
+
+  @@map("ai_decisions")
+  @@index([userId, occurredAt(sort: Desc)])
+  @@index([scopeKind, scopeId])
+  @@index([promptKey, promptVersion])
+}
+
+/// Per-user daily AI spend ledger. The atomic debit (audit B1) is enforced by a
+/// SQL function added in the migration: it does the race-free
+/// `UPDATE ... SET spent = spent + $cost WHERE spent + $cost <= ceiling RETURNING`.
+model AiCostLedger {
+  userId        String   @map("user_id") @db.Uuid
+  tenantId      String   @default("00000000-0000-0000-0000-000000000000") @map("tenant_id") @db.Uuid
+  day           DateTime @map("day") @db.Date
+  spentUsd      Decimal  @default(0) @map("spent_usd") @db.Decimal(12, 6)
+  ceilingUsd    Decimal  @default(0) @map("ceiling_usd") @db.Decimal(12, 6)
+  calls         Int      @default(0)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@id([userId, day])
+  @@map("ai_cost_ledger")
+  @@index([tenantId, day])
+}
+
+/// Cross-application answer consistency store. `answer_enc` is encrypted with the
+/// user DEK (dek_version for rotation, audit A6). `quarantined` blocks reuse of
+/// answers derived from prompt-injection-suspected postings (audit D3).
+model QaMemory {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  tenantId      String   @default("00000000-0000-0000-0000-000000000000") @map("tenant_id") @db.Uuid
+  questionNorm  String   @map("question_norm")
+  answerEnc     Bytes    @map("answer_enc")
+  dekVersion    Int      @default(1) @map("dek_version") @db.SmallInt
+  fieldKind     String   @map("field_kind")
+  usedCount     Int      @default(0) @map("used_count")
+  isLocked      Boolean  @default(false) @map("is_locked")
+  quarantined   Boolean  @default(false)
+  /// Decoupled (no FK) per audit A5 — lifecycle is independent of applications.
+  applicationId String?  @map("application_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, questionNorm], map: "qa_memory_user_question_idx")
+  @@map("qa_memory")
+  @@index([userId, usedCount(sort: Desc)])
+}
+
+/// Frequent (often user-locked) canonical answers — distinct from per-question
+/// qa_memory; these are profile-level facts (notice period, work auth, etc.).
+model FrequentAnswer {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  tenantId     String   @default("00000000-0000-0000-0000-000000000000") @map("tenant_id") @db.Uuid
+  label        String
+  valueEnc     Bytes    @map("value_enc")
+  dekVersion   Int      @default(1) @map("dek_version") @db.SmallInt
+  isLocked     Boolean  @default(true) @map("is_locked")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, label], map: "frequent_answers_user_label_idx")
+  @@map("frequent_answers")
+}
+
+/// Append-only history of every answer actually submitted on a platform form,
+/// with its source (frequent_answer | qa_memory | ai_generated | user_intervention).
+model AnswerHistory {
+  id            BigInt   @id @default(autoincrement())
+  userId        String   @map("user_id") @db.Uuid
+  tenantId      String   @default("00000000-0000-0000-0000-000000000000") @map("tenant_id") @db.Uuid
+  applicationId String?  @map("application_id") @db.Uuid
+  questionNorm  String   @map("question_norm")
+  source        String
+  aiDecisionId  BigInt?  @map("ai_decision_id")
+  /// Redacted form only (raw value never stored here).
+  valueRedacted String   @map("value_redacted")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("answer_history")
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([applicationId])
+}
+
+/// Embedding metadata, split per dimension (audit A2). The `vector` column and
+/// ANN indexes are added in the migration's raw SQL block (Prisma has no vector
+/// type). 1024-dim table.
+model Embedding1024 {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  tenantId    String   @default("00000000-0000-0000-0000-000000000000") @map("tenant_id") @db.Uuid
+  ownerKind   String   @map("owner_kind")
+  ownerId     String   @map("owner_id") @db.Uuid
+  model       String
+  textHash    Bytes    @map("text_hash")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("embeddings_1024")
+  @@index([userId, ownerKind, ownerId], map: "embeddings_1024_user_owner_idx")
+}
+
+/// 3072-dim embedding metadata (audit A2). Vector column added via raw SQL.
+model Embedding3072 {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  tenantId    String   @default("00000000-0000-0000-0000-000000000000") @map("tenant_id") @db.Uuid
+  ownerKind   String   @map("owner_kind")
+  ownerId     String   @map("owner_id") @db.Uuid
+  model       String
+  textHash    Bytes    @map("text_hash")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("embeddings_3072")
+  @@index([userId, ownerKind, ownerId], map: "embeddings_3072_user_owner_idx")
+}
+
+/// Queue of embeddings to (re)compute — drained by apps/scheduler (audit D7).
+model EmbeddingRefreshQueue {
+  id           BigInt    @id @default(autoincrement())
+  userId       String    @map("user_id") @db.Uuid
+  tenantId     String    @default("00000000-0000-0000-0000-000000000000") @map("tenant_id") @db.Uuid
+  ownerKind    String    @map("owner_kind")
+  ownerId      String    @map("owner_id") @db.Uuid
+  reason       String
+  enqueuedAt   DateTime  @default(now()) @map("enqueued_at") @db.Timestamptz
+  processedAt  DateTime? @map("processed_at") @db.Timestamptz
+  attempts     Int       @default(0)
+
+  @@map("embedding_refresh_queue")
+  @@index([enqueuedAt])
+}
+
+/// Resume version chain. Monotonic `version` per user; `parsed` holds the
+/// structured resume; a version is produced by applying a validated ResumePatch.
+model ResumeVersion {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  tenantId      String   @default("00000000-0000-0000-0000-000000000000") @map("tenant_id") @db.Uuid
+  version       Int
+  basedOnId     String?  @map("based_on_id") @db.Uuid
+  label         String?
+  /// Structured resume JSON (sections + items).
+  parsed        Json     @default("{}") @db.JsonB
+  /// Patch ops applied to basedOn to produce this version (audit trail).
+  patchOps      Json     @default("[]") @map("patch_ops") @db.JsonB
+  /// Object-storage key for the rendered artifact (PDF/DOCX), when materialized.
+  artifactUri   String?  @map("artifact_uri")
+  aiDecisionId  BigInt?  @map("ai_decision_id")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, version], map: "resume_versions_user_version_idx")
+  @@map("resume_versions")
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+/// AI profile-optimization recommendations, each approved/rejected individually
+/// (human override, §11). Maps the ProfileReviewOutput suggestions.
+model ProfileRecommendation {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  tenantId        String   @default("00000000-0000-0000-0000-000000000000") @map("tenant_id") @db.Uuid
+  area            String
+  issue           String
+  expectedBenefit String   @map("expected_benefit")
+  currentText     String   @map("current_text")
+  proposedText    String   @map("proposed_text")
+  confidence      Decimal  @db.Decimal(4, 3)
+  references      Json     @default("[]") @db.JsonB
+  aiDecisionId    BigInt?  @map("ai_decision_id")
+  status          String   @default("pending")
+  decidedAt       DateTime? @map("decided_at") @db.Timestamptz
+  decidedBy       String?  @map("decided_by") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("profile_recommendations")
+  @@index([userId, status])
+}
+
+/// Prompt evaluation results — the eval harness writes one row per (prompt
+/// version, eval case) so prompt changes are gated on a passing scorecard.
+model AiEvalResult {
+  id            BigInt   @id @default(autoincrement())
+  promptKey     String   @map("prompt_key")
+  promptVersion Int      @map("prompt_version")
+  caseId        String   @map("case_id")
+  passed        Boolean
+  score         Decimal? @db.Decimal(5, 4)
+  details       Json     @default("{}") @db.JsonB
+  runAt         DateTime @default(now()) @map("run_at") @db.Timestamptz
+
+  @@map("ai_eval_results")
+  @@unique([promptKey, promptVersion, caseId, runAt], map: "ai_eval_results_case_idx")
+  @@index([promptKey, promptVersion])
+}

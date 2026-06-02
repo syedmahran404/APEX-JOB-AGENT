@@ -1,0 +1,70 @@
+{
+  "description": "Offline fixtures: raw extracted fields from LinkedIn search results. Used by parse.test.ts to verify normalization without a browser. Reference: docs/architecture/06-automation-engine.md §16.",
+  "listings": [
+    {
+      "name": "fresh_remote_easyapply",
+      "raw": {
+        "url": "https://www.linkedin.com/jobs/view/senior-backend-engineer-at-acme-3856120947",
+        "entityId": "urn:li:jobPosting:3856120947",
+        "title": "Senior Backend Engineer",
+        "company": "Acme Corp",
+        "location": "Bengaluru, Karnataka, India",
+        "postedRelative": "2 hours ago",
+        "workplaceType": "Remote"
+      },
+      "expect": {
+        "externalId": "3856120947",
+        "title": "Senior Backend Engineer",
+        "company": "Acme Corp",
+        "remoteKind": "remote",
+        "postedAtUncertain": false
+      }
+    },
+    {
+      "name": "absolute_time_hybrid",
+      "raw": {
+        "url": "https://www.linkedin.com/jobs/view/3990001122",
+        "title": "Platform Engineer",
+        "company": "Globex LLC",
+        "location": "Remote, India",
+        "postedAbsolute": "2026-06-01T06:00:00.000Z",
+        "workplaceType": "Hybrid"
+      },
+      "expect": {
+        "externalId": "3990001122",
+        "company": "Globex LLC",
+        "remoteKind": "hybrid",
+        "postedAtUncertain": false
+      }
+    },
+    {
+      "name": "vague_recently_uncertain",
+      "raw": {
+        "url": "https://www.linkedin.com/jobs/view/3700009999",
+        "title": "Data Engineer",
+        "company": "Initech",
+        "location": "Pune",
+        "postedRelative": "recently posted",
+        "workplaceType": "On-site"
+      },
+      "expect": {
+        "externalId": "3700009999",
+        "remoteKind": "onsite",
+        "postedAtUncertain": true
+      }
+    },
+    {
+      "name": "currentJobId_url_form",
+      "raw": {
+        "url": "https://www.linkedin.com/jobs/search/?currentJobId=4001234567&keywords=golang",
+        "title": "Go Developer",
+        "company": "Hooli, Inc.",
+        "postedRelative": "1 day ago"
+      },
+      "expect": {
+        "externalId": "4001234567",
+        "company": "Hooli, Inc."
+      }
+    }
+  ]
+}

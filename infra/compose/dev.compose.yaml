@@ -1,0 +1,138 @@
+# APEX JOB AGENT — local development stack.
+# Brings up dependencies. Application services run via `pnpm dev` on the host
+# for fast HMR; CI's e2e stack uses a separate compose file.
+#
+# Usage:
+#   pnpm compose:dev:up
+#   pnpm dev
+#
+# Reference: docs/architecture/09-deployment-architecture.md §14.
+
+name: apex-dev
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: apex-postgres
+    environment:
+      POSTGRES_USER: apex
+      POSTGRES_PASSWORD: apex
+      POSTGRES_DB: apex
+      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+    ports:
+      - "5432:5432"
+    volumes:
+      - apex_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U apex -d apex"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: apex-redis
+    command: ["redis-server", "--appendonly", "yes", "--save", "", "--maxmemory-policy", "noeviction"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - apex_redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: minio/minio:RELEASE.2024-09-22T00-33-43Z
+    container_name: apex-minio
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - apex_miniodata:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+
+  minio-init:
+    image: minio/mc:RELEASE.2024-09-16T17-43-14Z
+    container_name: apex-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      sh -c "
+      mc alias set local http://minio:9000 minioadmin minioadmin &&
+      mc mb -p local/apex-resumes &&
+      mc mb -p local/apex-screenshots &&
+      mc mb -p local/apex-cover-letters &&
+      mc mb -p local/apex-storage-state &&
+      mc mb -p local/apex-backups &&
+      echo 'minio buckets ready'
+      "
+
+  vault:
+    image: hashicorp/vault:1.17
+    container_name: apex-vault
+    cap_add:
+      - IPC_LOCK
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: root
+      VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
+      # NOTE: Vault dev mode is FOR LOCAL DEV ONLY. Self-host uses
+      # infra/compose/selfhost.compose.yaml which runs production-mode storage.
+    command: ["server", "-dev"]
+    ports:
+      - "8200:8200"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1:8200/v1/sys/health?standbyok=true"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  vault-init:
+    image: hashicorp/vault:1.17
+    container_name: apex-vault-init
+    depends_on:
+      vault:
+        condition: service_healthy
+    environment:
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: root
+    entrypoint: >
+      sh -c "
+      vault secrets enable -path=transit transit || true &&
+      vault write -f transit/keys/apex-dek &&
+      vault secrets enable -path=secret -version=2 kv || true &&
+      echo 'vault transit + kv ready'
+      "
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: apex-mailhog
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # web UI
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.108.0
+    container_name: apex-otel
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    ports:
+      - "4317:4317" # OTLP gRPC
+      - "4318:4318" # OTLP HTTP
+
+volumes:
+  apex_pgdata:
+  apex_redisdata:
+  apex_miniodata:

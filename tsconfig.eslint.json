@@ -1,0 +1,22 @@
+{
+  // Type-aware-lint program. Includes ALL source AND test files across the
+  // monorepo so @typescript-eslint's type-checked rules can resolve types in
+  // test files (the per-package build tsconfigs deliberately exclude tests).
+  // Lint-only: never emits.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "composite": false,
+    "types": ["node"],
+    "allowJs": false
+  },
+  "include": [
+    "apps/*/src/**/*.ts",
+    "apps/*/src/**/*.tsx",
+    "apps/*/test/**/*.ts",
+    "packages/*/src/**/*.ts",
+    "packages/platform-adapters/*/src/**/*.ts",
+    "tools/*/src/**/*.ts"
+  ],
+  "exclude": ["**/node_modules/**", "**/dist/**", "**/.turbo/**"]
+}

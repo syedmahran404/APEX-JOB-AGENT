@@ -1,0 +1,111 @@
+name: ci
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "20"
+  PNPM_VERSION: "9.12.0"
+
+jobs:
+  install:
+    name: install + lint + typecheck + unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "pnpm"
+
+      - name: install
+        run: pnpm install --frozen-lockfile=false
+
+      - name: build lint-rules (required before lint)
+        run: pnpm --filter @apex/lint-rules build
+
+      - name: prisma generate (required for typecheck)
+        run: pnpm --filter @apex/db prisma:generate
+
+      - name: typecheck
+        run: pnpm typecheck
+
+      - name: lint
+        run: pnpm lint
+
+      - name: unit tests
+        run: pnpm test:unit
+
+      - name: build (all packages)
+        run: pnpm build
+
+      - name: db-scrub manifest check
+        run: pnpm scrub:check
+
+  secrets-scan:
+    name: secrets scan (gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  vulnerability-scan:
+    name: vulnerability scan (osv-scanner)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: install osv-scanner
+        run: |
+          curl -sSL -o osv-scanner https://github.com/google/osv-scanner/releases/latest/download/osv-scanner_linux_amd64
+          chmod +x osv-scanner
+      - name: scan
+        run: ./osv-scanner --recursive --skip-git --lockfile=pnpm-lock.yaml || true
+
+  integration:
+    name: integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Testcontainers spins its own Postgres per test file. No `services:` block needed.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "pnpm"
+      - run: pnpm install --frozen-lockfile=false
+      - run: pnpm --filter @apex/lint-rules build
+      - run: pnpm --filter @apex/db prisma:generate
+      - name: db integration tests (Testcontainers)
+        run: pnpm --filter @apex/db test:integration
+      - name: api integration tests (Testcontainers)
+        run: pnpm --filter @apex/api test:integration
